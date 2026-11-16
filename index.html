@@ -1,0 +1,2452 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="UniPulse" />
+  <title>UniPulse — Engineering Study Planner & AI Grade Tracker</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Inter', sans-serif; background-color: #090d16; color: #f1f5f9; overflow-x: hidden; }
+    .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.6); }
+    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.4); }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.7); border-radius: 9999px; }
+    @keyframes pulse-subtle { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    .animate-pulse-subtle { animation: pulse-subtle 2.5s infinite ease-in-out; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white pb-20 md:pb-6">
+
+  <!-- URGENT STUDY BANNER -->
+  <div id="urgent-banner" class="bg-gradient-to-r from-indigo-950 via-slate-900 to-amber-950/70 border-b border-indigo-500/30 px-4 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2">
+    <div class="flex items-center gap-2">
+      <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/20 text-amber-400">
+        <i data-lucide="Flame" class="w-3.5 h-3.5"></i>
+      </span>
+      <span id="urgent-banner-text" class="text-slate-200 font-medium">Loading study priority...</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="switchMainTab('ai')" class="px-2.5 py-1 rounded-md bg-indigo-600/80 hover:bg-indigo-500 text-white font-semibold transition text-[11px] flex items-center gap-1">
+        <i data-lucide="Sparkles" class="w-3 h-3"></i> Ask AI Strategist
+      </button>
+      <button onclick="exportAllCalendarICS()" class="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition text-[11px] flex items-center gap-1">
+        <i data-lucide="CalendarCheck" class="w-3 h-3 text-emerald-400"></i> 1-Tap Phone .ICS
+      </button>
+    </div>
+  </div>
+
+  <!-- TOP HEADER -->
+  <header class="sticky top-0 z-30 glass-card border-b border-slate-800/80 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 font-extrabold text-white text-lg">
+          UP
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-extrabold tracking-tight text-white">UniPulse</h1>
+            <span class="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 rounded-full">PWA Ready</span>
+          </div>
+          <p class="text-xs text-slate-400">Engineering Semester Planner • 7 Active Courses</p>
+        </div>
+      </div>
+
+      <!-- KPI Pills -->
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center gap-2">
+          <div class="text-[11px] text-slate-400">Sem GPA</div>
+          <div id="kpi-gpa" class="text-sm font-mono font-bold text-emerald-400">0.00</div>
+        </div>
+        <div class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center gap-2">
+          <div class="text-[11px] text-slate-400">Credits</div>
+          <div id="kpi-credits" class="text-sm font-mono font-bold text-cyan-400">16</div>
+        </div>
+        <div class="px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center gap-2">
+          <div class="text-[11px] text-slate-400">Mastered</div>
+          <div id="kpi-slides" class="text-sm font-mono font-bold text-amber-400">0/0</div>
+        </div>
+
+        <button onclick="openModal('pwa-modal')" class="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition" title="Add to Home Screen">
+          <i data-lucide="Smartphone" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Install App</span>
+        </button>
+
+        <button onclick="openModal('settings-modal')" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition relative" title="API Key, Notifications & Backup">
+          <i data-lucide="Settings" class="w-4 h-4"></i>
+          <span id="api-status-dot" class="w-2 h-2 rounded-full bg-amber-400 absolute top-1.5 right-1.5"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Desktop Navigation Tabs -->
+    <div class="max-w-7xl mx-auto mt-3 hidden md:flex items-center gap-1 border-t border-slate-800/80 pt-2.5">
+      <button onclick="switchMainTab('dashboard')" id="dtab-dashboard" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+        <i data-lucide="LayoutGrid" class="w-4 h-4"></i> Overview
+      </button>
+      <button onclick="switchMainTab('grades')" id="dtab-grades" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+        <i data-lucide="Calculator" class="w-4 h-4"></i> Grades & Syllabus AI
+      </button>
+      <button onclick="switchMainTab('study')" id="dtab-study" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+        <i data-lucide="BookOpen" class="w-4 h-4"></i> Study & Slides Vault
+      </button>
+      <button onclick="switchMainTab('schedule')" id="dtab-schedule" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+        <i data-lucide="Calendar" class="w-4 h-4"></i> Weekly Calendar & Exams
+      </button>
+      <button onclick="switchMainTab('ai')" id="dtab-ai" class="nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+        <i data-lucide="Bot" class="w-4 h-4"></i> AI Exam Paper Strategist
+      </button>
+    </div>
+  </header>
+
+  <!-- COURSE FILTER BAR -->
+  <div class="bg-slate-950/90 border-b border-slate-800/80 px-4 py-2.5 sticky top-[65px] md:top-[106px] z-20">
+    <div class="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto custom-scroll pb-1" id="course-pill-bar">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT AREA -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-5 space-y-6">
+
+    <!-- ==================== TAB 1: OVERVIEW DASHBOARD ==================== -->
+    <section id="view-dashboard" class="space-y-6">
+      <!-- Top Row: Next Lecture + Quick Exam Countdown + Study Focus -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Card 1: Semester Standing & What-If Snapshot -->
+        <div class="glass-card rounded-2xl p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                <i data-lucide="Award" class="w-4 h-4"></i> Academic Standing
+              </span>
+              <button onclick="switchMainTab('grades')" class="text-xs text-slate-400 hover:text-white flex items-center gap-1">
+                Open Calculator <i data-lucide="ArrowRight" class="w-3 h-3"></i>
+              </button>
+            </div>
+            <div class="flex items-baseline gap-4 my-2">
+              <div>
+                <div id="dash-gpa-big" class="text-4xl font-extrabold font-mono text-white">3.42</div>
+                <div class="text-xs text-slate-400 mt-0.5">Weighted GPA (4.0 Scale)</div>
+              </div>
+              <div class="h-10 w-px bg-slate-800"></div>
+              <div>
+                <div id="dash-avg-pct" class="text-2xl font-bold font-mono text-emerald-400">85.4%</div>
+                <div class="text-xs text-slate-400 mt-0.5">Credit-Weighted Avg</div>
+              </div>
+            </div>
+          </div>
+          <div id="dash-lowest-course-alert" class="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200 flex items-start gap-2.5">
+            <i data-lucide="AlertTriangle" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
+            <span id="dash-priority-course-msg">Calculating course priority...</span>
+          </div>
+        </div>
+
+        <!-- Card 2: Upcoming Exams Countdown -->
+        <div class="glass-card rounded-2xl p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-semibold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                <i data-lucide="Clock" class="w-4 h-4"></i> Next Exam Countdowns
+              </span>
+              <button onclick="openAddExamModal()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1">
+                + Add Exam
+              </button>
+            </div>
+            <div id="dash-exam-list" class="space-y-2.5 max-h-48 overflow-y-auto custom-scroll pr-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+            <span class="text-slate-400">Sync alarms to phone lockscreen:</span>
+            <button onclick="exportAllCalendarICS()" class="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1">
+              <i data-lucide="Download" class="w-3.5 h-3.5"></i> Export .ICS
+            </button>
+          </div>
+        </div>
+
+        <!-- Card 3: Unstudied Slides & Quick AI Coach -->
+        <div class="glass-card rounded-2xl p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                <i data-lucide="Sparkles" class="w-4 h-4"></i> High-Priority Slides to Study
+              </span>
+              <button onclick="switchMainTab('study')" class="text-xs text-slate-400 hover:text-white flex items-center gap-1">
+                All Slides <i data-lucide="ArrowRight" class="w-3 h-3"></i>
+              </button>
+            </div>
+            <div id="dash-study-list" class="space-y-2 max-h-48 overflow-y-auto custom-scroll pr-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+          <button onclick="switchMainTab('ai')" class="mt-3 w-full py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition">
+            <i data-lucide="FileQuestion" class="w-4 h-4"></i> Analyze Past Exam Paper with AI
+          </button>
+        </div>
+      </div>
+
+      <!-- All 7 Courses Grid -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i data-lucide="BookMarked" class="w-4 h-4 text-indigo-400"></i> Your 7 Enrolled Courses
+          </h2>
+          <span class="text-xs text-slate-400">Tap any course card to inspect grades, syllabus, or slides</span>
+        </div>
+        <div id="dash-courses-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: GRADES & AI SYLLABUS PARSER ==================== -->
+    <section id="view-grades" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left Column: Selected Course Grade Breakdown (7 cols) -->
+        <div class="lg:col-span-7 space-y-5">
+          <div class="glass-card rounded-2xl p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span id="grade-course-badge" class="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-indigo-500/20 text-indigo-300">MAT 101</span>
+                  <h2 id="grade-course-title" class="text-lg font-bold text-white">Calculus I</h2>
+                </div>
+                <p id="grade-course-meta" class="text-xs text-slate-400 mt-1">4 Credit Hours • Instructor: Dr. Al-Mansoor</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="text-right">
+                  <div id="grade-course-current-pct" class="text-2xl font-extrabold font-mono text-emerald-400">86.5%</div>
+                  <div id="grade-course-letter" class="text-xs font-semibold text-slate-400">Letter: B+ (3.5 GPA)</div>
+                </div>
+                <button onclick="openAddCategoryModal()" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition">
+                  <i data-lucide="Plus" class="w-4 h-4"></i> Add Category
+                </button>
+              </div>
+            </div>
+
+            <!-- Credit hours & Target Grade Quick Controls -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 my-4 p-3 rounded-xl bg-slate-900/80 border border-slate-800/80">
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Course Credit Hours</label>
+                <input type="number" id="input-course-credits" min="1" max="6" onchange="updateCourseCredits(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Target Course %</label>
+                <input type="number" id="input-course-target" min="50" max="100" onchange="updateCourseTarget(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div class="col-span-2 sm:col-span-1 flex flex-col justify-center">
+                <div class="text-[11px] text-slate-400">Syllabus Weight Sum</div>
+                <div id="grade-weight-sum" class="text-sm font-mono font-bold text-emerald-400 mt-0.5">100% Total</div>
+              </div>
+            </div>
+
+            <!-- Grading Categories List -->
+            <div id="grade-categories-container" class="space-y-3">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: What-If Final Calculator & AI Syllabus Extractor (5 cols) -->
+        <div class="lg:col-span-5 space-y-5">
+          <!-- What-If Final Exam Target Calculator -->
+          <div class="glass-card rounded-2xl p-5 border border-indigo-500/30">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="Target" class="w-4 h-4 text-indigo-400"></i> "What-If" Final Exam & Remaining Score Calculator
+              </h3>
+              <span class="text-[11px] font-mono text-indigo-300 bg-indigo-500/15 px-2 py-0.5 rounded">Live Math</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">See exactly what average score you need on the remaining ungraded assessments in <span id="whatif-course-code" class="text-white font-semibold">MAT 101</span> to hit each letter tier:</p>
+            <div id="whatif-matrix" class="space-y-2">
+              <!-- Populated by JS -->
+            </div>
+            <div class="mt-4 pt-4 border-t border-slate-800">
+              <label class="block text-xs text-slate-300 font-medium mb-1.5">Simulate Score on Remaining Weight (<span id="sim-rem-weight">40</span>%):</label>
+              <div class="flex items-center gap-3">
+                <input type="range" id="sim-slider" min="0" max="100" value="85" oninput="updateWhatIfSlider(this.value)" class="flex-1 accent-indigo-500" />
+                <span id="sim-slider-val" class="w-12 text-right font-mono text-xs font-bold text-indigo-300">85%</span>
+              </div>
+              <div id="sim-projected-result" class="mt-2.5 p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 flex items-center justify-between">
+                <span>Projected Final Course Grade:</span>
+                <span class="font-mono font-bold text-emerald-400 text-sm">86.0% (B+)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Syllabus Extractor Card -->
+          <div class="glass-card rounded-2xl p-5 border border-cyan-500/30">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="Cpu" class="w-4 h-4 text-cyan-400"></i> AI Syllabus Parser & Weight Extractor
+              </h3>
+              <button onclick="loadSampleSyllabusText()" class="text-[11px] text-cyan-400 hover:underline font-medium">
+                Load Demo Syllabus
+              </button>
+            </div>
+            <p class="text-xs text-slate-400 mb-3">
+              Upload your course syllabus PDF/photo or paste the grading breakdown text below. AI will extract the **Credit Hours**, **Grading Categories & Weights**, and **Exam Dates** and apply them to <span id="syllabus-course-code" class="text-white font-semibold">MAT 101</span>.
+            </p>
+
+            <!-- File Upload Dropzone -->
+            <label class="flex flex-col items-center justify-center p-3 mb-3 border border-dashed border-slate-700 hover:border-cyan-500/60 rounded-xl bg-slate-900/60 cursor-pointer transition">
+              <div class="flex items-center gap-2 text-xs text-slate-300 font-medium">
+                <i data-lucide="FileUp" class="w-4 h-4 text-cyan-400"></i>
+                <span id="syllabus-file-label">Upload Syllabus PDF / Image / TXT</span>
+              </div>
+              <span class="text-[10px] text-slate-500 mt-0.5">Extracts text via PDF.js or sends image to Gemini Vision</span>
+              <input type="file" id="syllabus-file-input" accept=".pdf,image/*,.txt" class="hidden" onchange="handleSyllabusFileUpload(event)" />
+            </label>
+
+            <textarea id="syllabus-raw-text" rows="4" placeholder="Or paste syllabus text here... e.g. 'Course: MAT 101 (4 Credits). Grading Criteria: Quizzes 15%, Midterm 1 20% (Nov 24, 2026), Midterm 2 20% (Dec 15, 2026), Homework 10%, Final Exam 35% (Jan 10, 2027).'" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 mb-3"></textarea>
+
+            <div class="flex items-center gap-2">
+              <button onclick="runAISyllabusExtraction()" id="btn-parse-syllabus" class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition shadow-lg shadow-cyan-600/20">
+                <i data-lucide="Sparkles" class="w-4 h-4"></i> Extract & Apply Grading Criteria
+              </button>
+            </div>
+            <div id="syllabus-extract-result" class="hidden mt-3 p-3 rounded-xl bg-slate-900/95 border border-slate-800 text-xs space-y-2"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: STUDY BACKLOG & SLIDES VAULT ==================== -->
+    <section id="view-study" class="hidden space-y-6">
+      <div class="glass-card rounded-2xl p-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="Layers" class="w-5 h-5 text-indigo-400"></i>
+              <span>Course Content & Slide Decks Vault (<span id="study-course-label" class="text-indigo-400">All Courses</span>)</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Store lecture slide PDFs locally in IndexedDB, tag high-priority exam topics, and track your mastery progress.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="study-filter-status" onchange="renderStudyVault()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
+              <option value="ALL">All Statuses</option>
+              <option value="To Study">To Study</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Mastered">Mastered</option>
+            </select>
+            <button onclick="openAddSlideModal()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition">
+              <i data-lucide="FilePlus" class="w-4 h-4"></i> + Add Slide / Topic
+            </button>
+          </div>
+        </div>
+
+        <!-- Study Vault Grid -->
+        <div id="study-slides-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: WEEKLY CALENDAR & EXAM COUNTDOWNS ==================== -->
+    <section id="view-schedule" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Weekly Lecture & Lab Time Grid (8 cols) -->
+        <div class="lg:col-span-8 glass-card rounded-2xl p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+            <div>
+              <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="CalendarDays" class="w-5 h-5 text-indigo-400"></i> Weekly Lecture & Lab Timetable (Sun – Thu)
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">Recurring class blocks for all 7 courses. Tap any session to edit or add a new lecture slot.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="openAddLectureModal()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1">
+                <i data-lucide="Plus" class="w-3.5 h-3.5"></i> Add Lecture Slot
+              </button>
+              <button onclick="exportAllCalendarICS()" class="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1">
+                <i data-lucide="Smartphone" class="w-3.5 h-3.5"></i> Sync to Phone Calendar
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto custom-scroll mt-4">
+            <div id="weekly-timetable-grid" class="min-w-[640px] grid grid-cols-5 gap-2.5">
+              <!-- Populated by JS for Sunday, Monday, Tuesday, Wednesday, Thursday -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Exam Dates & Notification Center (4 cols) -->
+        <div class="lg:col-span-4 space-y-5">
+          <div class="glass-card rounded-2xl p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="BellRing" class="w-4 h-4 text-rose-400"></i> Exam Dates & Reminders
+              </h3>
+              <button onclick="openAddExamModal()" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold">
+                + Add Exam
+              </button>
+            </div>
+            <div id="schedule-exams-list" class="space-y-2.5 max-h-[360px] overflow-y-auto custom-scroll pr-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Notification & Alarm Control Panel -->
+          <div class="glass-card rounded-2xl p-5 border border-amber-500/30">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="Bell" class="w-4 h-4 text-amber-400"></i> Smart Study Notifications
+              </h3>
+              <span id="notif-permission-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">Ready</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-3">
+              Enable browser push alerts for upcoming lectures & study blocks, or download a native `.ics` alarm file for 100% reliable lock-screen notifications on iOS & Android.
+            </p>
+            <div class="space-y-2">
+              <button onclick="requestAndTestNotification()" class="w-full py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-2 transition">
+                <i data-lucide="Volume2" class="w-4 h-4"></i> Enable & Send Test Study Alert Now
+              </button>
+              <button onclick="exportAllCalendarICS()" class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition">
+                <i data-lucide="CalendarPlus" class="w-4 h-4 text-emerald-400"></i> Export All Exams & Lectures (.ICS)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 5: AI EXAM PAPER STRATEGIST CHATBOT ==================== -->
+    <section id="view-ai" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left Column: Exam Paper Upload & Context Inspector (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="glass-card rounded-2xl p-5 border border-indigo-500/30">
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="FileSearch" class="w-5 h-5 text-indigo-400"></i> Past Exam / Quiz Paper Input
+              </h2>
+              <button onclick="loadSampleExamPaper()" class="text-xs text-indigo-400 hover:underline font-medium">
+                Load Sample Exam
+              </button>
+            </div>
+            <p class="text-xs text-slate-400 mb-3">
+              Upload a past exam paper, practice test, or graded quiz (PDF, photo, or text). The AI Strategist cross-references the exam questions with your **current course grade**, **upcoming exam countdown**, and **unstudied slide decks**.
+            </p>
+
+            <div class="mb-3">
+              <label class="block text-[11px] text-slate-400 mb-1">Target Course for Exam Analysis</label>
+              <select id="ai-course-select" onchange="syncAICourseSelector(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-semibold focus:outline-none focus:border-indigo-500">
+                <!-- Populated by JS -->
+              </select>
+            </div>
+
+            <!-- Upload Exam Paper PDF / Image -->
+            <label class="flex flex-col items-center justify-center p-3.5 mb-3 border border-dashed border-indigo-500/40 hover:border-indigo-400 rounded-xl bg-indigo-950/20 cursor-pointer transition">
+              <div class="flex items-center gap-2 text-xs text-indigo-200 font-semibold">
+                <i data-lucide="UploadCloud" class="w-4 h-4 text-indigo-400"></i>
+                <span id="exam-paper-file-label">Upload Past Exam PDF or Photo</span>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-0.5">Supports PDF text extraction & Gemini Vision image analysis</span>
+              <input type="file" id="exam-paper-file-input" accept=".pdf,image/*,.txt" class="hidden" onchange="handleExamPaperUpload(event)" />
+            </label>
+
+            <textarea id="exam-paper-text" rows="5" placeholder="Or paste exam questions / topic breakdown here... e.g., 'Q1 (20 pts): Limits and Continuity. Q2 (25 pts): Implicit Differentiation & Related Rates. Q3 (30 pts): Optimization & Max/Min Word Problems. Q4 (25 pts): L'Hopital's Rule & Curve Sketching.'" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 mb-3"></textarea>
+
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="triggerAIExamAnalysis('prioritize')" class="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition">
+                <i data-lucide="Compass" class="w-4 h-4"></i> What Should I Study First?
+              </button>
+              <button onclick="triggerAIExamAnalysis('practice')" class="py-2.5 px-3 rounded-xl bg-cyan-600/80 hover:bg-cyan-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition">
+                <i data-lucide="HelpCircle" class="w-4 h-4"></i> Generate Mock Questions
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Context Sent to AI Card -->
+          <div class="glass-card rounded-2xl p-4">
+            <div class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <i data-lucide="Database" class="w-3.5 h-3.5 text-emerald-400"></i> Live Context Synced to Chatbot
+            </div>
+            <div id="ai-live-context-box" class="text-xs text-slate-400 space-y-1.5 font-mono bg-slate-950/90 p-3 rounded-xl border border-slate-800">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Interactive Study Strategist Chat (7 cols) -->
+        <div class="lg:col-span-7 glass-card rounded-2xl flex flex-col h-[580px] border border-slate-800">
+          <!-- Chat Header -->
+          <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-white">
+                <i data-lucide="Bot" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white">UniPulse AI Study Strategist</h3>
+                <p id="ai-engine-mode-label" class="text-[11px] text-slate-400">Connected to Smart Local Diagnostic + Gemini API Ready</p>
+              </div>
+            </div>
+            <button onclick="clearAIChat()" class="text-xs text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
+              Reset Chat
+            </button>
+          </div>
+
+          <!-- Chat Messages Stream -->
+          <div id="ai-chat-stream" class="flex-1 p-4 overflow-y-auto custom-scroll space-y-3">
+            <!-- Populated by JS -->
+          </div>
+
+          <!-- Quick Prompt Chips -->
+          <div class="px-4 py-2 border-t border-slate-800/80 bg-slate-950/60 flex items-center gap-2 overflow-x-auto custom-scroll">
+            <button onclick="sendQuickPrompt('Rank my unstudied slide decks by exam weight and urgency.')" class="shrink-0 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-indigo-300 border border-indigo-500/30 text-[11px]">
+              Rank my unstudied slides
+            </button>
+            <button onclick="sendQuickPrompt('Build me a 3-day cram schedule for my next exam based on this paper.')" class="shrink-0 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 text-[11px]">
+              3-day exam cram plan
+            </button>
+            <button onclick="sendQuickPrompt('Which course needs the most attention right now to boost my GPA?')" class="shrink-0 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-emerald-300 border border-emerald-500/30 text-[11px]">
+              GPA rescue strategy
+            </button>
+          </div>
+
+          <!-- Chat Input Box -->
+          <form onsubmit="handleChatSubmit(event)" class="p-3 border-t border-slate-800 flex items-center gap-2 bg-slate-900/60 rounded-b-2xl">
+            <input type="text" id="ai-chat-input" placeholder="Ask about your uploaded exam paper, what slides to focus on, or ask for a practice problem..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" />
+            <button type="submit" id="btn-chat-send" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 transition shrink-0">
+              <span>Send</span>
+              <i data-lucide="Send" class="w-3.5 h-3.5"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MOBILE BOTTOM NAVIGATION BAR -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 glass-card border-t border-slate-800 px-2 py-1.5 flex items-center justify-around">
+    <button onclick="switchMainTab('dashboard')" id="mtab-dashboard" class="flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold">
+      <i data-lucide="LayoutGrid" class="w-4 h-4"></i>
+      <span>Home</span>
+    </button>
+    <button onclick="switchMainTab('grades')" id="mtab-grades" class="flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold">
+      <i data-lucide="Calculator" class="w-4 h-4"></i>
+      <span>Grades</span>
+    </button>
+    <button onclick="switchMainTab('study')" id="mtab-study" class="flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold">
+      <i data-lucide="BookOpen" class="w-4 h-4"></i>
+      <span>Slides</span>
+    </button>
+    <button onclick="switchMainTab('schedule')" id="mtab-schedule" class="flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold">
+      <i data-lucide="Calendar" class="w-4 h-4"></i>
+      <span>Schedule</span>
+    </button>
+    <button onclick="switchMainTab('ai')" id="mtab-ai" class="flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold">
+      <i data-lucide="Bot" class="w-4 h-4"></i>
+      <span>AI Coach</span>
+    </button>
+  </nav>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. Add / Edit Grade Category Modal -->
+  <div id="category-modal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-md w-full p-5 border border-slate-700 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white">Add Grading Category</h3>
+        <button onclick="closeModal('category-modal')" class="text-slate-400 hover:text-white"><i data-lucide="X" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Category Name (e.g., Midterm 2, Lab Reports, Quizzes)</label>
+          <input type="text" id="cat-name-input" placeholder="Midterm Exam 2" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Syllabus Weight (%)</label>
+            <input type="number" id="cat-weight-input" placeholder="20" min="1" max="100" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Score Achieved % (Optional)</label>
+            <input type="number" id="cat-score-input" placeholder="Leave blank if upcoming" min="0" max="100" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono" />
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal('category-modal')" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">Cancel</button>
+        <button onclick="saveNewCategory()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold">Save Category</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Add Slide / Study Material Modal -->
+  <div id="slide-modal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-md w-full p-5 border border-slate-700 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white">Add Course Slide Deck / Study Topic</h3>
+        <button onclick="closeModal('slide-modal')" class="text-slate-400 hover:text-white"><i data-lucide="X" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Course</label>
+          <select id="slide-course-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white"></select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Slide Deck / Topic Title</label>
+          <input type="text" id="slide-title-input" placeholder="e.g., Lecture 07: Rotational Kinematics & Torque" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Exam Priority</label>
+            <select id="slide-priority-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white">
+              <option value="High">High Priority</option>
+              <option value="Medium">Medium Priority</option>
+              <option value="Low">Low Priority</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Status</label>
+            <select id="slide-status-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white">
+              <option value="To Study">To Study</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Mastered">Mastered</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Key Concepts / Formulas (Used by AI Exam Matcher)</label>
+          <input type="text" id="slide-notes-input" placeholder="e.g., Moment of inertia, parallel axis theorem, angular momentum" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Attach Slide PDF / Image to Local IndexedDB Vault (Optional)</label>
+          <input type="file" id="slide-file-input" accept=".pdf,image/*,.pptx,.txt" class="w-full text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600/30 file:text-indigo-200" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal('slide-modal')" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">Cancel</button>
+        <button onclick="saveNewSlide()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold">Save to Study Vault</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Add Exam Date Modal -->
+  <div id="exam-modal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-md w-full p-5 border border-slate-700 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white">Add Upcoming Exam or Deadline</h3>
+        <button onclick="closeModal('exam-modal')" class="text-slate-400 hover:text-white"><i data-lucide="X" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Course</label>
+          <select id="exam-course-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white"></select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Exam Title</label>
+          <input type="text" id="exam-title-input" placeholder="e.g., Midterm Exam 2" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Date</label>
+            <input type="date" id="exam-date-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Time</label>
+            <input type="time" id="exam-time-input" value="10:00" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Room / Hall</label>
+            <input type="text" id="exam-room-input" placeholder="Auditorium B / Lab 204" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Syllabus Weight (%)</label>
+            <input type="number" id="exam-weight-input" placeholder="25" min="1" max="100" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono" />
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal('exam-modal')" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">Cancel</button>
+        <button onclick="saveNewExam()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold">Save Exam</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Add Lecture Slot Modal -->
+  <div id="lecture-modal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-md w-full p-5 border border-slate-700 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white">Add Recurring Weekly Lecture / Lab</h3>
+        <button onclick="closeModal('lecture-modal')" class="text-slate-400 hover:text-white"><i data-lucide="X" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Course</label>
+          <select id="lec-course-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Day of Week</label>
+            <select id="lec-day-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white">
+              <option value="Sun">Sunday</option>
+              <option value="Mon">Monday</option>
+              <option value="Tue">Tuesday</option>
+              <option value="Wed">Wednesday</option>
+              <option value="Thu">Thursday</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Room / Lab</label>
+            <input type="text" id="lec-room-input" placeholder="Eng B-201" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Start Time</label>
+            <input type="time" id="lec-start-input" value="09:00" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">End Time</label>
+            <input type="time" id="lec-end-input" value="10:15" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono" />
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal('lecture-modal')" class="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">Cancel</button>
+        <button onclick="saveNewLecture()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold">Save Slot</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Settings, Gemini API Key & JSON Backup Modal -->
+  <div id="settings-modal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-lg w-full p-5 border border-slate-700 space-y-4 max-h-[90vh] overflow-y-auto custom-scroll">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="Settings" class="w-4 h-4 text-indigo-400"></i> Settings, Gemini API Key & Data Sync
+        </h3>
+        <button onclick="closeModal('settings-modal')" class="text-slate-400 hover:text-white"><i data-lucide="X" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+          <div class="font-bold text-white flex items-center justify-between">
+            <span>Google Gemini API Key (Optional Live AI)</span>
+            <span id="settings-api-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Smart Local Fallback Active</span>
+          </div>
+          <p class="text-slate-400">
+            UniPulse includes a built-in deterministic Syllabus & Exam Parser out of the box. Paste a free <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="text-indigo-400 underline">Google AI Studio key</a> (`gemini-2.5-flash`) if you want live multimodal PDF/image vision calls.
+          </p>
+          <div class="flex gap-2">
+            <input type="password" id="gemini-api-key-input" placeholder="AIzaSy..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono" />
+            <button onclick="saveApiKey()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold">Save Key</button>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2.5">
+          <div class="font-bold text-white">Cross-Device Sync (Laptop ⇄ Phone JSON Backup)</div>
+          <p class="text-slate-400">Export your grades, syllabi, schedule, and study progress to a `.json` file to transfer between your laptop and phone home screen app.</p>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="exportFullBackupJSON()" class="px-3.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-semibold flex items-center gap-1.5">
+              <i data-lucide="Download" class="w-3.5 h-3.5"></i> Export Backup (.JSON)
+            </button>
+            <label class="px-3.5 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 font-semibold flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="Upload" class="w-3.5 h-3.5"></i> Import Backup (.JSON)
+              <input type="file" accept=".json" class="hidden" onchange="importFullBackupJSON(event)" />
+            </label>
+            <button onclick="resetToDefaultDemoData()" class="px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-700/40 font-semibold ml-auto">
+              Reset Demo Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Add to Home Screen (PWA Installation) Modal -->
+  <div id="pwa-modal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl max-w-md w-full p-5 border border-indigo-500/40 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="Smartphone" class="w-4 h-4 text-indigo-400"></i> Add UniPulse to Your Home Screen
+        </h3>
+        <button onclick="closeModal('pwa-modal')" class="text-slate-400 hover:text-white"><i data-lucide="X" class="w-4 h-4"></i></button>
+      </div>
+      <div class="space-y-3 text-xs text-slate-300">
+        <p>UniPulse is configured with a Web App Manifest, custom app icon, and offline storage (`localStorage` + `IndexedDB`) so it runs full-screen like a native app.</p>
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+          <div class="font-bold text-indigo-300">On iPhone / iPad (Safari):</div>
+          <ol class="list-decimal list-inside space-y-1 text-slate-400">
+            <li>Open this standalone HTML file or hosted link in **Safari**.</li>
+            <li>Tap the **Share** button at the bottom of the screen.</li>
+            <li>Scroll down and tap **"Add to Home Screen"**.</li>
+          </ol>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+          <div class="font-bold text-cyan-300">On Android (Chrome) or Desktop:</div>
+          <ol class="list-decimal list-inside space-y-1 text-slate-400">
+            <li>Tap the three-dot browser menu in **Chrome**.</li>
+            <li>Select **"Add to Home screen"** or **"Install app"**.</li>
+          </ol>
+        </div>
+        <button onclick="exportAllCalendarICS()" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center justify-center gap-2">
+          <i data-lucide="CalendarCheck" class="w-4 h-4"></i> Also Sync All Exam Alarms to Phone Calendar (.ICS)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed bottom-16 md:bottom-5 right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none"></div>
+
+  <!-- APPLICATION SCRIPT -->
+  <script>
+    // Configure PDF.js worker safely
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    // Inject dynamic Web App Manifest for PWA Home Screen installability
+    (function setupPWAManifest() {
+      try {
+        const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="42" fill="#4f46e5"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="Inter,sans-serif" font-weight="800" font-size="82">UP</text></svg>`;
+        const iconUrl = 'data:image/svg+xml;base64,' + btoa(iconSvg);
+        const manifest = {
+          name: 'UniPulse — Engineering Study Planner & Grade Tracker',
+          short_name: 'UniPulse',
+          start_url: '.',
+          display: 'standalone',
+          background_color: '#090d16',
+          theme_color: '#0f172a',
+          icons: [{ src: iconUrl, sizes: '192x192', type: 'image/svg+xml' }]
+        };
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+        document.head.appendChild(link);
+      } catch (e) {}
+    })();
+
+    // ==================== DEFAULT 7 COURSES DATASET ====================
+    const DEFAULT_STATE = {
+      selectedCourseId: 'MAT101',
+      activeTab: 'dashboard',
+      geminiApiKey: '',
+      courses: [
+        {
+          id: 'MAT101',
+          code: 'MAT 101',
+          name: 'Calculus I',
+          credits: 4,
+          targetGrade: 90,
+          color: 'indigo',
+          instructor: 'Dr. Tarek Al-Mansoor',
+          room: 'Eng B-104',
+          categories: [
+            { id: 'c1', name: 'Quizzes', weight: 15, score: 88 },
+            { id: 'c2', name: 'Homework & WebAssign', weight: 10, score: 95 },
+            { id: 'c3', name: 'Midterm Exam 1', weight: 20, score: 82 },
+            { id: 'c4', name: 'Midterm Exam 2', weight: 20, score: null },
+            { id: 'c5', name: 'Final Exam', weight: 35, score: null }
+          ]
+        },
+        {
+          id: 'PHU103',
+          code: 'PHU 103',
+          name: 'Mechanics and Waves',
+          credits: 3,
+          targetGrade: 85,
+          color: 'cyan',
+          instructor: 'Prof. Samer Haddad',
+          room: 'Sci Hall 201',
+          categories: [
+            { id: 'p1', name: 'Pop Quizzes', weight: 15, score: 76 },
+            { id: 'p2', name: 'Problem Sets', weight: 10, score: 90 },
+            { id: 'p3', name: 'Midterm Exam 1', weight: 25, score: 74 },
+            { id: 'p4', name: 'Midterm Exam 2', weight: 20, score: null },
+            { id: 'p5', name: 'Final Exam', weight: 30, score: null }
+          ]
+        },
+        {
+          id: 'PHU103L',
+          code: 'PHU 103 Lab',
+          name: 'Mechanics and Waves Lab',
+          credits: 1,
+          targetGrade: 90,
+          color: 'teal',
+          instructor: 'Eng. Lina Khaled',
+          room: 'Physics Lab 102',
+          categories: [
+            { id: 'pl1', name: 'Weekly Lab Reports', weight: 50, score: 92 },
+            { id: 'pl2', name: 'Pre-Lab Quizzes', weight: 20, score: 85 },
+            { id: 'pl3', name: 'Final Practical Exam', weight: 30, score: null }
+          ]
+        },
+        {
+          id: 'SE100',
+          code: 'SE 100',
+          name: 'Programming for Engineers',
+          credits: 3,
+          targetGrade: 90,
+          color: 'emerald',
+          instructor: 'Dr. Omar Farooq',
+          room: 'CompSci 305',
+          categories: [
+            { id: 's1', name: 'Coding Assignments', weight: 20, score: 94 },
+            { id: 's2', name: 'In-Class Quizzes', weight: 15, score: 86 },
+            { id: 's3', name: 'Midterm Exam', weight: 25, score: 89 },
+            { id: 's4', name: 'Final Coding Project & Exam', weight: 40, score: null }
+          ]
+        },
+        {
+          id: 'SE100L',
+          code: 'SE 100 L',
+          name: 'Programming for Engineers Lab',
+          credits: 1,
+          targetGrade: 95,
+          color: 'lime',
+          instructor: 'Eng. Yasser Zaid',
+          room: 'CS Lab 108',
+          categories: [
+            { id: 'sl1', name: 'Lab Tasks & Submissions', weight: 60, score: 96 },
+            { id: 'sl2', name: 'Lab Mid-Practical', weight: 15, score: 90 },
+            { id: 'sl3', name: 'Final Lab Practical', weight: 25, score: null }
+          ]
+        },
+        {
+          id: 'COE100',
+          code: 'COE 100',
+          name: 'Academic Success',
+          credits: 1,
+          targetGrade: 95,
+          color: 'amber',
+          instructor: 'Dr. Nadia Al-Harbi',
+          room: 'Room G-12',
+          categories: [
+            { id: 'co1', name: 'Attendance & Workshops', weight: 30, score: 100 },
+            { id: 'co2', name: 'Study Portfolio Assignment', weight: 40, score: 92 },
+            { id: 'co3', name: 'Final Reflection Presentation', weight: 30, score: null }
+          ]
+        },
+        {
+          id: 'ENG101',
+          code: 'ENG 101',
+          name: 'University Writing',
+          credits: 3,
+          targetGrade: 90,
+          color: 'rose',
+          instructor: 'Prof. Claire Bennett',
+          room: 'Hum 210',
+          categories: [
+            { id: 'e1', name: 'Essay 1: Rhetorical Analysis', weight: 20, score: 87 },
+            { id: 'e2', name: 'Peer Review & Drafts', weight: 15, score: 95 },
+            { id: 'e3', name: 'Essay 2: Research Argument', weight: 30, score: 88 },
+            { id: 'e4', name: 'Final Portfolio & Synthesis', weight: 35, score: null }
+          ]
+        }
+      ],
+      slides: [
+        { id: 'sl-1', courseId: 'PHU103', title: 'Lecture 07: Work, Energy & Non-Conservative Forces', priority: 'High', status: 'To Study', notes: 'Work-kinetic energy theorem, potential energy curves, mechanical energy conservation', hasAttachment: false, fileName: '' },
+        { id: 'sl-2', courseId: 'PHU103', title: 'Lecture 08: Rotational Kinematics & Moment of Inertia', priority: 'High', status: 'To Study', notes: 'Torque, angular acceleration, parallel-axis theorem, rolling without slipping', hasAttachment: false, fileName: '' },
+        { id: 'sl-3', courseId: 'MAT101', title: 'Slides 09: Implicit Differentiation & Related Rates', priority: 'High', status: 'To Study', notes: 'Chain rule in implicit form, conical tank & ladder related rates problems', hasAttachment: false, fileName: '' },
+        { id: 'sl-4', courseId: 'MAT101', title: 'Slides 10: Optimization & L\'Hôpital\'s Rule', priority: 'High', status: 'In Progress', notes: 'Indeterminate forms 0/0, extreme value theorem, closed interval optimization', hasAttachment: false, fileName: '' },
+        { id: 'sl-5', courseId: 'SE100', title: 'Week 08: Functions, Arrays & Pointers/Lists', priority: 'Medium', status: 'In Progress', notes: 'Pass by reference vs value, 2D arrays, modular code decomposition', hasAttachment: false, fileName: '' },
+        { id: 'sl-6', courseId: 'PHU103L', title: 'Experiment 06: Simple Harmonic Motion & Pendulum', priority: 'Medium', status: 'To Study', notes: 'Error propagation, small angle approximation, plotting T^2 vs L', hasAttachment: false, fileName: '' },
+        { id: 'sl-7', courseId: 'ENG101', title: 'Module 05: APA Citation & Counter-Arguments', priority: 'Low', status: 'Mastered', notes: 'Synthesizing peer-reviewed engineering sources, thesis hedging', hasAttachment: false, fileName: '' },
+        { id: 'sl-8', courseId: 'SE100L', title: 'Lab 07: Debugging Loops & File I/O Streams', priority: 'Medium', status: 'Mastered', notes: 'Reading CSV sensor data, edge-case loop termination', hasAttachment: false, fileName: '' },
+        { id: 'sl-9', courseId: 'COE100', title: 'Workshop 04: Cornell Notes & Active Recall Matrix', priority: 'Low', status: 'Mastered', notes: 'Spaced repetition scheduling before midterms', hasAttachment: false, fileName: '' }
+      ],
+      exams: [
+        { id: 'ex-1', courseId: 'PHU103', title: 'Midterm Exam 2 (Rotational & Waves)', date: '2026-11-23', time: '10:00', room: 'Sci Auditorium A', weight: 20 },
+        { id: 'ex-2', courseId: 'MAT101', title: 'Midterm Exam 2 (Derivatives & Optimization)', date: '2026-11-26', time: '11:30', room: 'Main Hall B', weight: 20 },
+        { id: 'ex-3', courseId: 'SE100L', title: 'Final Lab Practical Assessment', date: '2026-12-03', time: '14:00', room: 'CS Lab 108', weight: 25 },
+        { id: 'ex-4', courseId: 'ENG101', title: 'Research Portfolio Final Submission', date: '2026-12-08', time: '23:59', room: 'Moodle Portal', weight: 35 },
+        { id: 'ex-5', courseId: 'SE100', title: 'Final Written & Coding Exam', date: '2026-12-14', time: '09:00', room: 'CompSci 305', weight: 40 }
+      ],
+      lectures: [
+        { id: 'l-1', courseId: 'MAT101', day: 'Sun', start: '09:00', end: '10:15', room: 'Eng B-104' },
+        { id: 'l-2', courseId: 'PHU103', day: 'Sun', start: '10:30', end: '11:45', room: 'Sci Hall 201' },
+        { id: 'l-3', courseId: 'ENG101', day: 'Sun', start: '13:00', end: '14:15', room: 'Hum 210' },
+        { id: 'l-4', courseId: 'SE100', day: 'Mon', start: '09:30', end: '10:45', room: 'CompSci 305' },
+        { id: 'l-5', courseId: 'PHU103L', day: 'Mon', start: '13:00', end: '15:30', room: 'Physics Lab 102' },
+        { id: 'l-6', courseId: 'MAT101', day: 'Tue', start: '09:00', end: '10:15', room: 'Eng B-104' },
+        { id: 'l-7', courseId: 'PHU103', day: 'Tue', start: '10:30', end: '11:45', room: 'Sci Hall 201' },
+        { id: 'l-8', courseId: 'COE100', day: 'Tue', start: '14:00', end: '15:15', room: 'Room G-12' },
+        { id: 'l-9', courseId: 'SE100', day: 'Wed', start: '09:30', end: '10:45', room: 'CompSci 305' },
+        { id: 'l-10', courseId: 'SE100L', day: 'Wed', start: '13:00', end: '15:30', room: 'CS Lab 108' },
+        { id: 'l-11', courseId: 'MAT101', day: 'Thu', start: '09:00', end: '10:15', room: 'Eng B-104' },
+        { id: 'l-12', courseId: 'ENG101', day: 'Thu', start: '13:00', end: '14:15', room: 'Hum 210' }
+      ],
+      chatHistory: [
+        {
+          role: 'assistant',
+          text: 'Welcome to **UniPulse AI Study Strategist**! I have live access to all **7 of your courses**, your current weighted grades, upcoming exam countdowns, and your unstudied lecture slides.\n\nUpload a past exam paper (PDF or image) or click **"Load Sample Exam"** on the left, and I will tell you exactly which slides and topics to prioritize first!'
+        }
+      ]
+    };
+
+    let state = loadState();
+    let uploadedExamImageBase64 = null;
+    let uploadedSyllabusImageBase64 = null;
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem('unipulse_pwa_state_v1');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.courses) && parsed.courses.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {}
+      return JSON.parse(JSON.stringify(DEFAULT_STATE));
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem('unipulse_pwa_state_v1', JSON.stringify(state));
+      } catch (e) {}
+    }
+
+    // ==================== INDEXEDDB LOCAL FILE VAULT ====================
+    function openFilesDB() {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) return resolve(null);
+        const req = indexedDB.open('UniPulseFilesDB', 1);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('files')) {
+            db.createObjectStore('files', { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+    }
+
+    async function saveFileToIndexedDB(id, fileObj) {
+      const db = await openFilesDB();
+      if (!db) return false;
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const tx = db.transaction('files', 'readwrite');
+          tx.objectStore('files').put({
+            id,
+            name: fileObj.name,
+            type: fileObj.type,
+            dataUrl: reader.result
+          });
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        };
+        reader.readAsDataURL(fileObj);
+      });
+    }
+
+    async function openAttachmentFromIndexedDB(id) {
+      const db = await openFilesDB();
+      if (!db) {
+        showToast('IndexedDB not available in this context.', 'amber');
+        return;
+      }
+      const tx = db.transaction('files', 'readonly');
+      const req = tx.objectStore('files').get(id);
+      req.onsuccess = () => {
+        const rec = req.result;
+        if (!rec || !rec.dataUrl) {
+          showToast('File attachment not found.', 'rose');
+          return;
+        }
+        const a = document.createElement('a');
+        a.href = rec.dataUrl;
+        a.download = rec.name || 'slide-attachment';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast('Opened ' + rec.name, 'emerald');
+      };
+    }
+
+    // ==================== GRADE & GPA MATH ENGINE ====================
+    function calculateCourseStats(course) {
+      let gradedWeight = 0;
+      let earnedPoints = 0;
+      let totalSyllabusWeight = 0;
+
+      course.categories.forEach((cat) => {
+        const w = parseFloat(cat.weight) || 0;
+        totalSyllabusWeight += w;
+        if (cat.score !== null && cat.score !== '' && !isNaN(parseFloat(cat.score))) {
+          const s = Math.max(0, Math.min(100, parseFloat(cat.score)));
+          gradedWeight += w;
+          earnedPoints += (s * w) / 100;
+        }
+      });
+
+      const currentPct = gradedWeight > 0 ? (earnedPoints / gradedWeight) * 100 : 100;
+      const remainingWeight = Math.max(0, 100 - gradedWeight);
+      const letterInfo = percentageToGrade(currentPct);
+
+      return {
+        currentPct: Number(currentPct.toFixed(1)),
+        earnedPoints: Number(earnedPoints.toFixed(2)),
+        gradedWeight: Number(gradedWeight.toFixed(1)),
+        remainingWeight: Number(remainingWeight.toFixed(1)),
+        totalSyllabusWeight: Number(totalSyllabusWeight.toFixed(1)),
+        letter: letterInfo.letter,
+        gpaPoints: letterInfo.gpa
+      };
+    }
+
+    function percentageToGrade(pct) {
+      if (pct >= 95) return { letter: 'A+', gpa: 4.0 };
+      if (pct >= 90) return { letter: 'A', gpa: 4.0 };
+      if (pct >= 85) return { letter: 'B+', gpa: 3.5 };
+      if (pct >= 80) return { letter: 'B', gpa: 3.0 };
+      if (pct >= 75) return { letter: 'C+', gpa: 2.5 };
+      if (pct >= 70) return { letter: 'C', gpa: 2.0 };
+      if (pct >= 65) return { letter: 'D+', gpa: 1.5 };
+      if (pct >= 60) return { letter: 'D', gpa: 1.0 };
+      return { letter: 'F', gpa: 0.0 };
+    }
+
+    function calculateSemesterTotals() {
+      let totalCredits = 0;
+      let totalQualityPoints = 0;
+      let weightedPctSum = 0;
+      let lowestCourse = null;
+
+      state.courses.forEach((c) => {
+        const cr = parseFloat(c.credits) || 1;
+        const stats = calculateCourseStats(c);
+        totalCredits += cr;
+        totalQualityPoints += stats.gpaPoints * cr;
+        weightedPctSum += stats.currentPct * cr;
+        if (!lowestCourse || stats.currentPct < lowestCourse.stats.currentPct) {
+          lowestCourse = { course: c, stats };
+        }
+      });
+
+      const gpa = totalCredits > 0 ? totalQualityPoints / totalCredits : 0;
+      const avgPct = totalCredits > 0 ? weightedPctSum / totalCredits : 0;
+      return {
+        totalCredits,
+        gpa: gpa.toFixed(2),
+        avgPct: avgPct.toFixed(1),
+        lowestCourse
+      };
+    }
+
+    // ==================== NAVIGATION & GLOBAL RENDER ====================
+    function switchMainTab(tabId) {
+      state.activeTab = tabId;
+      saveState();
+
+      const tabs = ['dashboard', 'grades', 'study', 'schedule', 'ai'];
+      tabs.forEach((t) => {
+        const sec = document.getElementById('view-' + t);
+        if (sec) sec.classList.toggle('hidden', t !== tabId);
+
+        const dbtn = document.getElementById('dtab-' + t);
+        if (dbtn) {
+          dbtn.className = t === tabId
+            ? 'nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-indigo-600 text-white shadow-md shadow-indigo-600/25 transition'
+            : 'nav-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-slate-400 hover:text-white hover:bg-slate-800/70 transition';
+        }
+
+        const mbtn = document.getElementById('mtab-' + t);
+        if (mbtn) {
+          mbtn.className = t === tabId
+            ? 'flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold text-indigo-400 bg-indigo-500/10'
+            : 'flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold text-slate-400';
+        }
+      });
+
+      renderAll();
+    }
+
+    function selectCourse(courseId) {
+      state.selectedCourseId = courseId;
+      saveState();
+      renderAll();
+    }
+
+    function renderAll() {
+      renderTopKPIs();
+      renderCoursePills();
+      renderDashboard();
+      renderGradesTab();
+      renderStudyVault();
+      renderScheduleTab();
+      renderAITab();
+      populateCourseDropdowns();
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    function renderTopKPIs() {
+      const sem = calculateSemesterTotals();
+      document.getElementById('kpi-gpa').textContent = sem.gpa;
+      document.getElementById('kpi-credits').textContent = sem.totalCredits;
+
+      const masteredCount = state.slides.filter((s) => s.status === 'Mastered').length;
+      document.getElementById('kpi-slides').textContent = `${masteredCount}/${state.slides.length}`;
+
+      // Urgent Banner
+      const sortedExams = [...state.exams].sort((a, b) => new Date(a.date) - new Date(b.date));
+      const nextExam = sortedExams[0];
+      const unstudiedHigh = state.slides.filter((s) => s.status !== 'Mastered' && s.priority === 'High');
+
+      const bannerEl = document.getElementById('urgent-banner-text');
+      if (nextExam) {
+        const course = state.courses.find((c) => c.id === nextExam.courseId);
+        const daysLeft = getDaysRemaining(nextExam.date);
+        bannerEl.innerHTML = `Next Exam: <strong>${course ? course.code : ''} ${nextExam.title}</strong> (${daysLeft}) • <strong>${unstudiedHigh.length} High-Priority slide decks</strong> waiting to review.`;
+      } else {
+        bannerEl.textContent = `All 7 courses tracked • ${unstudiedHigh.length} High-Priority slide decks to review.`;
+      }
+
+      // API Key dot
+      const hasKey = Boolean(state.geminiApiKey && state.geminiApiKey.trim().length > 10);
+      const dot = document.getElementById('api-status-dot');
+      if (dot) {
+        dot.className = hasKey
+          ? 'w-2 h-2 rounded-full bg-emerald-400 absolute top-1.5 right-1.5'
+          : 'w-2 h-2 rounded-full bg-amber-400 absolute top-1.5 right-1.5';
+      }
+    }
+
+    function renderCoursePills() {
+      const bar = document.getElementById('course-pill-bar');
+      if (!bar) return;
+
+      let html = '';
+      state.courses.forEach((c) => {
+        const active = c.id === state.selectedCourseId;
+        const stats = calculateCourseStats(c);
+        html += `
+          <button onclick="selectCourse('${c.id}')" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition border ${
+            active
+              ? 'bg-indigo-600 text-white border-indigo-400 shadow-md shadow-indigo-600/20'
+              : 'bg-slate-900/90 text-slate-300 border-slate-800 hover:bg-slate-800'
+          }">
+            <span>${c.code}</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${
+              active ? 'bg-indigo-900/80 text-indigo-100' : 'bg-slate-800 text-emerald-400'
+            }">${stats.currentPct}%</span>
+          </button>
+        `;
+      });
+      bar.innerHTML = html;
+    }
+
+    function getDaysRemaining(dateStr) {
+      const now = new Date('2026-11-16T10:00:00');
+      const target = new Date(dateStr + 'T10:00:00');
+      const diffDays = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) return `${Math.abs(diffDays)}d ago`;
+      if (diffDays === 0) return 'Today!';
+      if (diffDays === 1) return 'Tomorrow!';
+      return `in ${diffDays} days`;
+    }
+
+    // ==================== TAB 1: DASHBOARD RENDER ====================
+    function renderDashboard() {
+      const sem = calculateSemesterTotals();
+      document.getElementById('dash-gpa-big').textContent = sem.gpa;
+      document.getElementById('dash-avg-pct').textContent = sem.avgPct + '%';
+
+      const msgEl = document.getElementById('dash-priority-course-msg');
+      if (sem.lowestCourse) {
+        const lc = sem.lowestCourse.course;
+        const ls = sem.lowestCourse.stats;
+        msgEl.innerHTML = `<strong>Focus Alert:</strong> Your lowest current standing is in <strong>${lc.code} (${lc.name})</strong> at <strong>${ls.currentPct}% (${ls.letter})</strong> with ${ls.remainingWeight}% of syllabus weight remaining.`;
+      }
+
+      // Upcoming Exams list
+      const examListEl = document.getElementById('dash-exam-list');
+      const sortedExams = [...state.exams].sort((a, b) => new Date(a.date) - new Date(b.date));
+      examListEl.innerHTML = sortedExams.map((ex) => {
+        const c = state.courses.find((course) => course.id === ex.courseId);
+        const countdown = getDaysRemaining(ex.date);
+        return `
+          <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono text-[10px] font-bold">${c ? c.code : ''}</span>
+                <span class="text-xs font-semibold text-white">${ex.title}</span>
+              </div>
+              <div class="text-[11px] text-slate-400 mt-0.5">${ex.date} at ${ex.time} • ${ex.room} (${ex.weight}%)</div>
+            </div>
+            <span class="shrink-0 px-2 py-1 rounded-lg bg-slate-800 text-amber-300 font-mono text-[11px] font-bold">${countdown}</span>
+          </div>
+        `;
+      }).join('');
+
+      // High Priority Slides list
+      const studyListEl = document.getElementById('dash-study-list');
+      const pendingSlides = state.slides.filter((s) => s.status !== 'Mastered').slice(0, 4);
+      studyListEl.innerHTML = pendingSlides.map((s) => {
+        const c = state.courses.find((course) => course.id === s.courseId);
+        return `
+          <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] font-bold">${c ? c.code : ''}</span>
+                <span class="text-xs font-medium text-slate-200 truncate">${s.title}</span>
+              </div>
+              <div class="text-[10px] text-slate-400 truncate mt-0.5">${s.notes}</div>
+            </div>
+            <button onclick="cycleSlideStatus('${s.id}')" class="shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold bg-amber-500/20 text-amber-300 hover:bg-amber-500/30">
+              ${s.status}
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      // 7 Courses Grid
+      const gridEl = document.getElementById('dash-courses-grid');
+      gridEl.innerHTML = state.courses.map((c) => {
+        const stats = calculateCourseStats(c);
+        const courseSlides = state.slides.filter((s) => s.courseId === c.id);
+        const unstudiedCount = courseSlides.filter((s) => s.status !== 'Mastered').length;
+        const nextExam = state.exams.find((e) => e.courseId === c.id);
+
+        const neededForTarget = stats.remainingWeight > 0
+          ? Math.max(0, ((c.targetGrade - stats.earnedPoints) / stats.remainingWeight) * 100).toFixed(1)
+          : 'Done';
+
+        return `
+          <div class="glass-card rounded-2xl p-4 border ${
+            c.id === state.selectedCourseId ? 'border-indigo-500/70 ring-1 ring-indigo-500/40' : 'border-slate-800/90'
+          } flex flex-col justify-between hover:border-slate-700 transition">
+            <div>
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <div>
+                  <span class="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-mono text-xs font-bold">${c.code}</span>
+                  <h3 class="text-sm font-bold text-white mt-1.5">${c.name}</h3>
+                </div>
+                <div class="text-right">
+                  <div class="text-lg font-extrabold font-mono text-emerald-400">${stats.currentPct}%</div>
+                  <div class="text-[11px] font-mono text-slate-400">${stats.letter} • ${c.credits} Cr</div>
+                </div>
+              </div>
+
+              <!-- Progress bar of graded syllabus -->
+              <div class="mt-2 mb-3">
+                <div class="flex justify-between text-[11px] text-slate-400 mb-1">
+                  <span>Syllabus Graded: ${stats.gradedWeight}%</span>
+                  <span>Target ${c.targetGrade}%: Need ${neededForTarget}%</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 rounded-full" style="width: ${Math.min(100, stats.currentPct)}%"></div>
+                </div>
+              </div>
+
+              <div class="space-y-1 text-[11px] text-slate-400">
+                <div class="flex items-center justify-between">
+                  <span>Unstudied Decks:</span>
+                  <span class="font-mono font-semibold text-amber-300">${unstudiedCount} / ${courseSlides.length}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span>Next Exam:</span>
+                  <span class="font-mono text-rose-300">${nextExam ? nextExam.date + ' (' + getDaysRemaining(nextExam.date) + ')' : 'None scheduled'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-1.5 mt-4 pt-3 border-t border-slate-800/80">
+              <button onclick="selectCourse('${c.id}'); switchMainTab('grades');" class="py-1.5 px-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-[11px] font-medium text-center">
+                Grades
+              </button>
+              <button onclick="selectCourse('${c.id}'); switchMainTab('study');" class="py-1.5 px-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-[11px] font-medium text-center">
+                Slides
+              </button>
+              <button onclick="selectCourse('${c.id}'); switchMainTab('ai');" class="py-1.5 px-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-[11px] font-semibold text-center">
+                AI Coach
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ==================== TAB 2: GRADES & SYLLABUS AI RENDER ====================
+    function renderGradesTab() {
+      const course = state.courses.find((c) => c.id === state.selectedCourseId) || state.courses[0];
+      if (!course) return;
+      const stats = calculateCourseStats(course);
+
+      document.getElementById('grade-course-badge').textContent = course.code;
+      document.getElementById('grade-course-title').textContent = course.name;
+      document.getElementById('grade-course-meta').textContent = `${course.credits} Credit Hours • ${course.instructor} • Room ${course.room}`;
+      document.getElementById('grade-course-current-pct').textContent = `${stats.currentPct}%`;
+      document.getElementById('grade-course-letter').textContent = `Letter: ${stats.letter} (${stats.gpaPoints.toFixed(1)} GPA)`;
+
+      document.getElementById('input-course-credits').value = course.credits;
+      document.getElementById('input-course-target').value = course.targetGrade;
+
+      const weightSumEl = document.getElementById('grade-weight-sum');
+      weightSumEl.textContent = `${stats.totalSyllabusWeight}% Total`;
+      weightSumEl.className = Math.abs(stats.totalSyllabusWeight - 100) < 0.1
+        ? 'text-sm font-mono font-bold text-emerald-400 mt-0.5'
+        : 'text-sm font-mono font-bold text-amber-400 mt-0.5';
+
+      document.getElementById('whatif-course-code').textContent = course.code;
+      document.getElementById('syllabus-course-code').textContent = course.code;
+      document.getElementById('sim-rem-weight').textContent = stats.remainingWeight;
+
+      // Render categories
+      const container = document.getElementById('grade-categories-container');
+      container.innerHTML = course.categories.map((cat) => {
+        const hasScore = cat.score !== null && cat.score !== '';
+        return `
+          <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-[160px] flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-white">${cat.name}</span>
+                <span class="px-2 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono text-[11px] font-semibold">${cat.weight}% Weight</span>
+              </div>
+              <div class="text-[11px] text-slate-400 mt-0.5">
+                ${hasScore ? `Contributes ${((cat.score * cat.weight) / 100).toFixed(2)} pts out of ${cat.weight}` : 'Upcoming / Not graded yet'}
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="flex items-center bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  placeholder="--"
+                  value="${hasScore ? cat.score : ''}"
+                  onchange="updateCategoryScore('${course.id}', '${cat.id}', this.value)"
+                  class="w-14 bg-transparent text-xs font-mono font-bold text-emerald-400 focus:outline-none text-right"
+                />
+                <span class="text-xs text-slate-500 ml-1">%</span>
+              </div>
+              <button onclick="deleteCategory('${course.id}', '${cat.id}')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-300 transition" title="Remove Category">
+                <i data-lucide="Trash2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Render What-If Matrix
+      const tiers = [
+        { label: 'A (90%)', target: 90 },
+        { label: 'B+ (85%)', target: 85 },
+        { label: 'B (80%)', target: 80 },
+        { label: 'C+ (75%)', target: 75 }
+      ];
+      const matrixEl = document.getElementById('whatif-matrix');
+      matrixEl.innerHTML = tiers.map((t) => {
+        if (stats.remainingWeight <= 0) {
+          const achieved = stats.currentPct >= t.target;
+          return `
+            <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between text-xs">
+              <span class="font-semibold text-slate-200">For ${t.label}:</span>
+              <span class="font-mono font-bold ${achieved ? 'text-emerald-400' : 'text-slate-500'}">${achieved ? 'Achieved!' : 'Syllabus Complete'}</span>
+            </div>
+          `;
+        }
+        const req = ((t.target - stats.earnedPoints) / stats.remainingWeight) * 100;
+        let badge = '';
+        if (req <= 0) {
+          badge = `<span class="text-emerald-400 font-mono font-bold">0% (Already Secured!)</span>`;
+        } else if (req > 100) {
+          badge = `<span class="text-rose-400 font-mono font-bold">${req.toFixed(1)}% (Requires Extra Credit)</span>`;
+        } else {
+          badge = `<span class="text-cyan-300 font-mono font-bold">Need ${req.toFixed(1)}% avg on remaining ${stats.remainingWeight}%</span>`;
+        }
+        return `
+          <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-200">Target ${t.label}</span>
+            ${badge}
+          </div>
+        `;
+      }).join('');
+
+      updateWhatIfSlider(document.getElementById('sim-slider').value);
+    }
+
+    function updateWhatIfSlider(val) {
+      const course = state.courses.find((c) => c.id === state.selectedCourseId) || state.courses[0];
+      const stats = calculateCourseStats(course);
+      const simScore = parseFloat(val) || 0;
+      document.getElementById('sim-slider-val').textContent = simScore + '%';
+
+      const projectedTotal = stats.earnedPoints + (simScore * stats.remainingWeight) / 100;
+      const g = percentageToGrade(projectedTotal);
+      document.getElementById('sim-projected-result').innerHTML = `
+        <span>Projected Final Course Grade:</span>
+        <span class="font-mono font-bold text-emerald-400 text-sm">${projectedTotal.toFixed(1)}% (${g.letter} • ${g.gpa.toFixed(1)} GPA)</span>
+      `;
+    }
+
+    function updateCategoryScore(courseId, catId, newScoreStr) {
+      const course = state.courses.find((c) => c.id === courseId);
+      if (!course) return;
+      const cat = course.categories.find((item) => item.id === catId);
+      if (!cat) return;
+
+      if (newScoreStr === '' || newScoreStr === null) {
+        cat.score = null;
+      } else {
+        cat.score = Math.max(0, Math.min(100, parseFloat(newScoreStr) || 0));
+      }
+      saveState();
+      renderAll();
+      showToast(`Updated ${cat.name} score in ${course.code}`, 'emerald');
+    }
+
+    function updateCourseCredits(val) {
+      const course = state.courses.find((c) => c.id === state.selectedCourseId);
+      if (!course) return;
+      course.credits = Math.max(1, Math.min(6, parseInt(val, 10) || 3));
+      saveState();
+      renderAll();
+    }
+
+    function updateCourseTarget(val) {
+      const course = state.courses.find((c) => c.id === state.selectedCourseId);
+      if (!course) return;
+      course.targetGrade = Math.max(50, Math.min(100, parseFloat(val) || 85));
+      saveState();
+      renderAll();
+    }
+
+    function openAddCategoryModal() {
+      document.getElementById('cat-name-input').value = '';
+      document.getElementById('cat-weight-input').value = '15';
+      document.getElementById('cat-score-input').value = '';
+      openModal('category-modal');
+    }
+
+    function saveNewCategory() {
+      const name = document.getElementById('cat-name-input').value.trim();
+      const weight = parseFloat(document.getElementById('cat-weight-input').value) || 10;
+      const scoreRaw = document.getElementById('cat-score-input').value.trim();
+      if (!name) {
+        showToast('Please enter a category name.', 'rose');
+        return;
+      }
+      const course = state.courses.find((c) => c.id === state.selectedCourseId);
+      if (!course) return;
+
+      course.categories.push({
+        id: 'cat-' + Date.now(),
+        name,
+        weight,
+        score: scoreRaw === '' ? null : Math.max(0, Math.min(100, parseFloat(scoreRaw)))
+      });
+      saveState();
+      closeModal('category-modal');
+      renderAll();
+      showToast(`Added ${name} (${weight}%) to ${course.code}`, 'emerald');
+    }
+
+    function deleteCategory(courseId, catId) {
+      const course = state.courses.find((c) => c.id === courseId);
+      if (!course) return;
+      course.categories = course.categories.filter((c) => c.id !== catId);
+      saveState();
+      renderAll();
+      showToast('Removed grading category', 'amber');
+    }
+
+    // ==================== AI SYLLABUS PARSER & PDF/IMAGE EXTRACTOR ====================
+    function loadSampleSyllabusText() {
+      const course = state.courses.find((c) => c.id === state.selectedCourseId) || state.courses[0];
+      const samples = {
+        MAT101: `Course Syllabus: MAT 101 Calculus I\nCredit Hours: 4 Credits\nGrading Breakdown:\n- Online Homework: 10%\n- Bi-Weekly Quizzes: 15%\n- Midterm Exam 1: 20% (Date: 2026-10-22)\n- Midterm Exam 2: 20% (Date: 2026-11-26)\n- Comprehensive Final Exam: 35% (Date: 2027-01-12)`,
+        PHU103: `Course Syllabus: PHU 103 Mechanics and Waves\nCredit Hours: 3 Credits\nAssessment Criteria:\n- Concept Quizzes: 15%\n- Homework Sets: 10%\n- Midterm Exam 1: 25%\n- Midterm Exam 2: 20% (Date: 2026-11-23)\n- Final Exam: 30% (Date: 2027-01-14)`,
+        SE100: `Course Syllabus: SE 100 Programming for Engineers\nCredit Hours: 3 Credits\nGrading Policy:\n- Weekly Coding Labs & Assignments: 25%\n- Quizzes: 15%\n- Midterm Exam: 25%\n- Final Capstone & Written Exam: 35% (Date: 2026-12-14)`
+      };
+      document.getElementById('syllabus-raw-text').value = samples[course.id] || `Course: ${course.code} ${course.name}\nCredit Hours: ${course.credits} Credits\nGrading Criteria:\n- Quizzes: 15%\n- Assignments & Labs: 20%\n- Midterm Exam: 25% (Date: 2026-11-29)\n- Final Exam: 40% (Date: 2027-01-10)`;
+      showToast(`Loaded sample syllabus for ${course.code}`, 'cyan');
+    }
+
+    async function handleSyllabusFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      document.getElementById('syllabus-file-label').textContent = file.name;
+      uploadedSyllabusImageBase64 = null;
+
+      if (file.type === 'application/pdf' && window.pdfjsLib) {
+        try {
+          showToast('Extracting text from syllabus PDF...', 'cyan');
+          const arrayBuf = await file.arrayBuffer();
+          const pdf = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
+          let fullText = '';
+          for (let i = 1; i <= Math.min(pdf.numPages, 6); i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            fullText += content.items.map((item) => item.str).join(' ') + '\n';
+          }
+          document.getElementById('syllabus-raw-text').value = fullText.trim();
+          showToast('Syllabus PDF text extracted! Click Extract & Apply.', 'emerald');
+        } catch (err) {
+          showToast('PDF read error; paste text or use image.', 'rose');
+        }
+      } else if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          uploadedSyllabusImageBase64 = reader.result;
+          document.getElementById('syllabus-raw-text').value = `[Uploaded Syllabus Image: ${file.name}] Ready for AI extraction.`;
+          showToast('Syllabus image loaded for AI extraction.', 'emerald');
+        };
+        reader.readAsDataURL(file);
+      } else {
+        const text = await file.text();
+        document.getElementById('syllabus-raw-text').value = text;
+        showToast('Syllabus text file loaded.', 'emerald');
+      }
+    }
+
+    async function runAISyllabusExtraction() {
+      const rawText = document.getElementById('syllabus-raw-text').value.trim();
+      if (!rawText && !uploadedSyllabusImageBase64) {
+        loadSampleSyllabusText();
+      }
+      const textToParse = document.getElementById('syllabus-raw-text').value.trim();
+      const course = state.courses.find((c) => c.id === state.selectedCourseId) || state.courses[0];
+      const btn = document.getElementById('btn-parse-syllabus');
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="Loader2" class="w-4 h-4 animate-spin"></i> Extracting Criteria...`;
+      if (window.lucide) window.lucide.createIcons();
+
+      let extracted = null;
+
+      // Try live Gemini API if key is configured
+      if (state.geminiApiKey && state.geminiApiKey.trim().length > 10) {
+        try {
+          const prompt = `Extract the course credit hours, grading categories with percentage weights, and any exam dates (YYYY-MM-DD) from this syllabus for ${course.code}. Return ONLY valid JSON in the shape: {"credits": number, "categories": [{"name": string, "weight": number}], "exams": [{"title": string, "date": "YYYY-MM-DD", "weight": number}]}. Syllabus text: ${textToParse}`;
+          const parts = [{ text: prompt }];
+          if (uploadedSyllabusImageBase64) {
+            const base64Data = uploadedSyllabusImageBase64.split(',')[1];
+            const mimeType = uploadedSyllabusImageBase64.substring(uploadedSyllabusImageBase64.indexOf(':') + 1, uploadedSyllabusImageBase64.indexOf(';'));
+            parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
+          }
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiApiKey.trim())}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts }] })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const jsonMatch = replyText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              extracted = JSON.parse(jsonMatch[0]);
+            }
+          }
+        } catch (e) {}
+      }
+
+      // Deterministic Smart Regex Parser Fallback (works 100% offline/without API key)
+      if (!extracted) {
+        extracted = smartParseSyllabusLocally(textToParse, course);
+      }
+
+      // Apply extracted credits & categories to the selected course
+      if (extracted.credits && !isNaN(extracted.credits)) {
+        course.credits = Math.max(1, Math.min(6, parseInt(extracted.credits, 10)));
+      }
+
+      if (Array.isArray(extracted.categories) && extracted.categories.length > 0) {
+        const oldScoresMap = {};
+        course.categories.forEach((c) => {
+          oldScoresMap[c.name.toLowerCase()] = c.score;
+        });
+
+        course.categories = extracted.categories.map((cat, idx) => ({
+          id: 'ai-cat-' + Date.now() + '-' + idx,
+          name: cat.name,
+          weight: Number(cat.weight) || 10,
+          score: oldScoresMap[cat.name.toLowerCase()] !== undefined ? oldScoresMap[cat.name.toLowerCase()] : (idx === 0 ? 88 : null)
+        }));
+      }
+
+      if (Array.isArray(extracted.exams) && extracted.exams.length > 0) {
+        extracted.exams.forEach((ex) => {
+          if (ex.date) {
+            state.exams.push({
+              id: 'ex-ai-' + Date.now() + Math.random().toString(36).slice(2, 5),
+              courseId: course.id,
+              title: ex.title || 'Extracted Exam',
+              date: ex.date,
+              time: '10:00',
+              room: course.room || 'TBA',
+              weight: ex.weight || 20
+            });
+          }
+        });
+      }
+
+      saveState();
+      renderAll();
+
+      const resBox = document.getElementById('syllabus-extract-result');
+      resBox.classList.remove('hidden');
+      resBox.innerHTML = `
+        <div class="font-bold text-emerald-400 flex items-center gap-1.5">
+          <i data-lucide="CheckCircle2" class="w-4 h-4"></i> Applied to ${course.code} (${course.credits} Credit Hours)
+        </div>
+        <div class="text-slate-300">
+          Extracted <strong>${course.categories.length} grading categories</strong> (${course.categories.map((c) => `${c.name}: ${c.weight}%`).join(', ')}).
+        </div>
+      `;
+
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="Sparkles" class="w-4 h-4"></i> Extract & Apply Grading Criteria`;
+      if (window.lucide) window.lucide.createIcons();
+      showToast(`Syllabus criteria extracted & applied to ${course.code}!`, 'emerald');
+    }
+
+    function smartParseSyllabusLocally(text, course) {
+      const creditMatch = text.match(/(\d)\s*(?:credit\s*hours?|credits?|cr\b)/i);
+      const credits = creditMatch ? parseInt(creditMatch[1], 10) : course.credits;
+
+      const categories = [];
+      const lines = text.split(/[\n,;]+/);
+      lines.forEach((line) => {
+        const m = line.match(/([A-Za-z0-9\s\-&/']+?)\s*[:\-–]?\s*(\d{1,3})\s*%/);
+        if (m) {
+          const rawName = m[1].replace(/^[\s\-•*]+/, '').trim();
+          const weight = parseInt(m[2], 10);
+          if (rawName && rawName.length > 2 && weight > 0 && weight <= 100 && !/total|grade|scale/i.test(rawName)) {
+            categories.push({ name: rawName, weight });
+          }
+        }
+      });
+
+      const exams = [];
+      const dateRegex = /(Midterm\s*\d?|Final\s*Exam|Quiz\s*\d?)[^.\n]*?(\d{4}-\d{2}-\d{2})/gi;
+      let dm;
+      while ((dm = dateRegex.exec(text)) !== null) {
+        exams.push({ title: dm[1].trim(), date: dm[2], weight: 20 });
+      }
+
+      return {
+        credits,
+        categories: categories.length > 0 ? categories : course.categories,
+        exams
+      };
+    }
+
+    // ==================== TAB 3: STUDY BACKLOG & SLIDES VAULT ====================
+    function renderStudyVault() {
+      const filterStatus = document.getElementById('study-filter-status')?.value || 'ALL';
+      const activeCourse = state.courses.find((c) => c.id === state.selectedCourseId);
+      document.getElementById('study-course-label').textContent = activeCourse ? `${activeCourse.code} + All Courses` : 'All Courses';
+
+      // Sort selected course slides first, then high priority
+      const priorityRank = { High: 1, Medium: 2, Low: 3 };
+      const filtered = state.slides
+        .filter((s) => filterStatus === 'ALL' || s.status === filterStatus)
+        .sort((a, b) => {
+          const aSel = a.courseId === state.selectedCourseId ? 0 : 1;
+          const bSel = b.courseId === state.selectedCourseId ? 0 : 1;
+          if (aSel !== bSel) return aSel - bSel;
+          return (priorityRank[a.priority] || 2) - (priorityRank[b.priority] || 2);
+        });
+
+      const grid = document.getElementById('study-slides-grid');
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="col-span-full p-8 text-center text-xs text-slate-400">No slides match the selected status filter. Click "+ Add Slide / Topic" to add study material.</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map((s) => {
+        const c = state.courses.find((course) => course.id === s.courseId);
+        const priBadge = s.priority === 'High'
+          ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+          : s.priority === 'Medium'
+          ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+          : 'bg-slate-800 text-slate-300 border-slate-700';
+
+        const statusBadge = s.status === 'Mastered'
+          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+          : s.status === 'In Progress'
+          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+          : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+
+        return `
+          <div class="p-4 rounded-2xl bg-slate-900/90 border ${
+            s.courseId === state.selectedCourseId ? 'border-indigo-500/50' : 'border-slate-800'
+          } flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[11px] font-bold">${c ? c.code : s.courseId}</span>
+                <span class="px-2 py-0.5 rounded border text-[10px] font-semibold ${priBadge}">${s.priority} Priority</span>
+              </div>
+              <h4 class="text-sm font-bold text-white">${s.title}</h4>
+              <p class="text-xs text-slate-400 mt-1">${s.notes || 'No topic notes added.'}</p>
+              ${
+                s.hasAttachment
+                  ? `<button onclick="openAttachmentFromIndexedDB('${s.id}')" class="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/90 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/30 text-[11px] font-medium">
+                      <i data-lucide="Paperclip" class="w-3 h-3"></i> Open Attached Slide (${s.fileName})
+                    </button>`
+                  : ''
+              }
+            </div>
+            <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+              <button onclick="cycleSlideStatus('${s.id}')" class="px-2.5 py-1 rounded-lg border text-xs font-semibold transition ${statusBadge}">
+                Status: ${s.status} (Tap to cycle)
+              </button>
+              <button onclick="deleteSlide('${s.id}')" class="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-300 transition">
+                <i data-lucide="Trash2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function cycleSlideStatus(slideId) {
+      const s = state.slides.find((item) => item.id === slideId);
+      if (!s) return;
+      const order = ['To Study', 'In Progress', 'Mastered'];
+      const nextIdx = (order.indexOf(s.status) + 1) % order.length;
+      s.status = order[nextIdx];
+      saveState();
+      renderAll();
+      showToast(`"${s.title}" marked as ${s.status}`, 'emerald');
+    }
+
+    function openAddSlideModal() {
+      populateCourseDropdowns();
+      document.getElementById('slide-course-input').value = state.selectedCourseId;
+      document.getElementById('slide-title-input').value = '';
+      document.getElementById('slide-notes-input').value = '';
+      document.getElementById('slide-file-input').value = '';
+      openModal('slide-modal');
+    }
+
+    async function saveNewSlide() {
+      const courseId = document.getElementById('slide-course-input').value;
+      const title = document.getElementById('slide-title-input').value.trim();
+      const priority = document.getElementById('slide-priority-input').value;
+      const status = document.getElementById('slide-status-input').value;
+      const notes = document.getElementById('slide-notes-input').value.trim();
+      const fileInput = document.getElementById('slide-file-input');
+      const fileObj = fileInput.files[0];
+
+      if (!title) {
+        showToast('Please enter a slide deck or topic title.', 'rose');
+        return;
+      }
+
+      const newId = 'sl-' + Date.now();
+      let hasAttachment = false;
+      let fileName = '';
+
+      if (fileObj) {
+        hasAttachment = await saveFileToIndexedDB(newId, fileObj);
+        fileName = fileObj.name;
+      }
+
+      state.slides.unshift({
+        id: newId,
+        courseId,
+        title,
+        priority,
+        status,
+        notes,
+        hasAttachment,
+        fileName
+      });
+
+      saveState();
+      closeModal('slide-modal');
+      renderAll();
+      showToast(`Added "${title}" to Study Vault`, 'emerald');
+    }
+
+    function deleteSlide(slideId) {
+      state.slides = state.slides.filter((s) => s.id !== slideId);
+      saveState();
+      renderAll();
+      showToast('Slide topic removed', 'amber');
+    }
+
+    // ==================== TAB 4: SCHEDULE & EXAMS RENDER ====================
+    function renderScheduleTab() {
+      const days = [
+        { code: 'Sun', name: 'Sunday' },
+        { code: 'Mon', name: 'Monday' },
+        { code: 'Tue', name: 'Tuesday' },
+        { code: 'Wed', name: 'Wednesday' },
+        { code: 'Thu', name: 'Thursday' }
+      ];
+
+      const gridEl = document.getElementById('weekly-timetable-grid');
+      gridEl.innerHTML = days.map((d) => {
+        const dayLectures = state.lectures
+          .filter((l) => l.day === d.code)
+          .sort((a, b) => a.start.localeCompare(b.start));
+
+        return `
+          <div class="rounded-xl bg-slate-900/70 border border-slate-800 p-2.5 flex flex-col gap-2 min-h-[260px]">
+            <div class="text-xs font-bold text-center py-1.5 rounded-lg bg-slate-950 text-indigo-300 border border-slate-800">
+              ${d.name}
+            </div>
+            <div class="space-y-2 flex-1">
+              ${
+                dayLectures.length === 0
+                  ? `<div class="text-[11px] text-slate-500 text-center py-8">No classes</div>`
+                  : dayLectures.map((l) => {
+                      const c = state.courses.find((course) => course.id === l.courseId);
+                      return `
+                        <div class="p-2.5 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-xs relative group">
+                          <div class="flex items-center justify-between">
+                            <span class="font-mono font-bold text-indigo-300 text-[11px]">${c ? c.code : l.courseId}</span>
+                            <button onclick="deleteLecture('${l.id}')" class="opacity-70 hover:opacity-100 text-slate-400 hover:text-rose-400">
+                              <i data-lucide="X" class="w-3 h-3"></i>
+                            </button>
+                          </div>
+                          <div class="font-semibold text-white text-[11px] mt-0.5 truncate">${c ? c.name : ''}</div>
+                          <div class="font-mono text-[10px] text-emerald-400 mt-1">${l.start} – ${l.end}</div>
+                          <div class="text-[10px] text-slate-400">${l.room}</div>
+                        </div>
+                      `;
+                    }).join('')
+              }
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Render Exam list in Schedule tab
+      const exContainer = document.getElementById('schedule-exams-list');
+      const sorted = [...state.exams].sort((a, b) => new Date(a.date) - new Date(b.date));
+      exContainer.innerHTML = sorted.map((ex) => {
+        const c = state.courses.find((course) => course.id === ex.courseId);
+        return `
+          <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono text-[10px] font-bold">${c ? c.code : ex.courseId}</span>
+                <span class="text-xs font-bold text-white">${ex.title}</span>
+              </div>
+              <div class="text-[11px] text-slate-400 mt-0.5">${ex.date} • ${ex.time} • ${ex.room}</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-mono text-[10px] font-bold">${getDaysRemaining(ex.date)}</span>
+              <button onclick="deleteExam('${ex.id}')" class="p-1 text-slate-400 hover:text-rose-400">
+                <i data-lucide="Trash2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openAddExamModal() {
+      populateCourseDropdowns();
+      document.getElementById('exam-course-input').value = state.selectedCourseId;
+      document.getElementById('exam-title-input').value = '';
+      document.getElementById('exam-date-input').value = '2026-12-01';
+      document.getElementById('exam-room-input').value = 'Main Hall A';
+      openModal('exam-modal');
+    }
+
+    function saveNewExam() {
+      const courseId = document.getElementById('exam-course-input').value;
+      const title = document.getElementById('exam-title-input').value.trim();
+      const date = document.getElementById('exam-date-input').value;
+      const time = document.getElementById('exam-time-input').value || '10:00';
+      const room = document.getElementById('exam-room-input').value.trim() || 'TBA';
+      const weight = parseFloat(document.getElementById('exam-weight-input').value) || 20;
+
+      if (!title || !date) {
+        showToast('Please enter exam title and date.', 'rose');
+        return;
+      }
+
+      state.exams.push({
+        id: 'ex-' + Date.now(),
+        courseId,
+        title,
+        date,
+        time,
+        room,
+        weight
+      });
+      saveState();
+      closeModal('exam-modal');
+      renderAll();
+      showToast(`Added ${title} on ${date}`, 'emerald');
+    }
+
+    function deleteExam(id) {
+      state.exams = state.exams.filter((e) => e.id !== id);
+      saveState();
+      renderAll();
+      showToast('Exam removed', 'amber');
+    }
+
+    function openAddLectureModal() {
+      populateCourseDropdowns();
+      document.getElementById('lec-course-input').value = state.selectedCourseId;
+      document.getElementById('lec-room-input').value = 'Eng B-201';
+      openModal('lecture-modal');
+    }
+
+    function saveNewLecture() {
+      const courseId = document.getElementById('lec-course-input').value;
+      const day = document.getElementById('lec-day-input').value;
+      const start = document.getElementById('lec-start-input').value;
+      const end = document.getElementById('lec-end-input').value;
+      const room = document.getElementById('lec-room-input').value.trim() || 'TBA';
+
+      state.lectures.push({
+        id: 'lec-' + Date.now(),
+        courseId,
+        day,
+        start,
+        end,
+        room
+      });
+      saveState();
+      closeModal('lecture-modal');
+      renderAll();
+      showToast('Added recurring lecture slot', 'emerald');
+    }
+
+    function deleteLecture(id) {
+      state.lectures = state.lectures.filter((l) => l.id !== id);
+      saveState();
+      renderAll();
+      showToast('Lecture slot removed', 'amber');
+    }
+
+    // ==================== HYBRID NOTIFICATIONS & .ICS PHONE CALENDAR EXPORT ====================
+    async function requestAndTestNotification() {
+      const nextExam = [...state.exams].sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+      const course = nextExam ? state.courses.find((c) => c.id === nextExam.courseId) : state.courses[0];
+      const highSlide = state.slides.find((s) => s.status !== 'Mastered');
+
+      const msg = `Study Priority: ${course ? course.code : 'PHU 103'} (${nextExam ? nextExam.title + ' ' + getDaysRemaining(nextExam.date) : 'Upcoming'}). Review "${highSlide ? highSlide.title : 'Lecture Slides'}" next!`;
+
+      if ('Notification' in window) {
+        try {
+          const perm = await Notification.requestPermission();
+          document.getElementById('notif-permission-badge').textContent = perm.toUpperCase();
+          if (perm === 'granted') {
+            new Notification('UniPulse Study Reminder', { body: msg });
+          }
+        } catch (e) {}
+      }
+      showToast(msg, 'indigo');
+    }
+
+    function exportAllCalendarICS() {
+      let icsLines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//UniPulse//Engineering Study Planner//EN',
+        'CALSCALE:GREGORIAN'
+      ];
+
+      state.exams.forEach((ex) => {
+        const c = state.courses.find((course) => course.id === ex.courseId);
+        const cleanDate = ex.date.replace(/-/g, '');
+        const cleanTime = (ex.time || '10:00').replace(':', '') + '00';
+        icsLines.push(
+          'BEGIN:VEVENT',
+          `UID:${ex.id}@unipulse.app`,
+          `DTSTAMP:20261116T100000Z`,
+          `DTSTART:${cleanDate}T${cleanTime}`,
+          `SUMMARY:[EXAM] ${c ? c.code : ''} - ${ex.title} (${ex.weight}%)`,
+          `LOCATION:${ex.room}`,
+          `DESCRIPTION:Syllabus Weight: ${ex.weight}%. Generated by UniPulse Study Planner.`,
+          'BEGIN:VALARM',
+          'TRIGGER:-PT24H',
+          'ACTION:DISPLAY',
+          'DESCRIPTION:24-Hour Exam Reminder',
+          'END:VALARM',
+          'BEGIN:VALARM',
+          'TRIGGER:-PT1H',
+          'ACTION:DISPLAY',
+          'DESCRIPTION:1-Hour Exam Reminder',
+          'END:VALARM',
+          'END:VEVENT'
+        );
+      });
+
+      icsLines.push('END:VCALENDAR');
+      const blob = new Blob([icsLines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'UniPulse_Exams_And_Study_Alarms.ics';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast('Downloaded .ICS calendar file with 24h & 1h native phone alarms!', 'emerald');
+    }
+
+    // ==================== TAB 5: AI EXAM PAPER STRATEGIST CHATBOT ====================
+    function renderAITab() {
+      const course = state.courses.find((c) => c.id === state.selectedCourseId) || state.courses[0];
+      const stats = calculateCourseStats(course);
+      const unstudied = state.slides.filter((s) => s.courseId === course.id && s.status !== 'Mastered');
+      const nextExam = state.exams.find((e) => e.courseId === course.id);
+
+      const ctxBox = document.getElementById('ai-live-context-box');
+      if (ctxBox) {
+        ctxBox.innerHTML = `
+          <div><span class="text-indigo-400">Active Course:</span> ${course.code} — ${course.name} (${course.credits} Cr)</div>
+          <div><span class="text-emerald-400">Current Standing:</span> ${stats.currentPct}% (${stats.letter}) • ${stats.remainingWeight}% weight left</div>
+          <div><span class="text-rose-400">Next Exam:</span> ${nextExam ? `${nextExam.title} on ${nextExam.date} (${getDaysRemaining(nextExam.date)})` : 'No exam logged'}</div>
+          <div><span class="text-amber-400">Unstudied Decks (${unstudied.length}):</span> ${unstudied.map((s) => s.title).join(' | ') || 'All decks mastered!'}</div>
+        `;
+      }
+
+      const modeLabel = document.getElementById('ai-engine-mode-label');
+      if (modeLabel) {
+        modeLabel.textContent = state.geminiApiKey && state.geminiApiKey.trim().length > 10
+          ? 'Gemini 2.5 Flash Live Multimodal API Connected'
+          : 'Smart Exam-to-Slide Diagnostic Engine Active (Add API Key in Settings for Live LLM)';
+      }
+
+      renderChatMessages();
+    }
+
+    function syncAICourseSelector(courseId) {
+      selectCourse(courseId);
+    }
+
+    function loadSampleExamPaper() {
+      const course = state.courses.find((c) => c.id === state.selectedCourseId) || state.courses[0];
+      const samplePapers = {
+        PHU103: `PHU 103 Mechanics and Waves — Past Midterm 2 Exam Paper (Total: 100 Marks)\nQ1 (30 Marks): Rotational Kinematics & Moment of Inertia — A solid cylinder of mass M and radius R rolls without slipping down an inclined plane. Calculate angular acceleration and torque using the parallel-axis theorem.\nQ2 (30 Marks): Work-Kinetic Energy Theorem & Non-Conservative Forces — A block slides across a rough surface with coefficient of kinetic friction mu_k into a spring.\nQ3 (25 Marks): Simple Harmonic Motion — Derive the period of a physical pendulum and maximum velocity.\nQ4 (15 Marks): Conservation of Angular Momentum — Figure skater pulling arms inward.`,
+        MAT101: `MAT 101 Calculus I — Past Midterm 2 Exam Paper (Total: 100 Points)\nProblem 1 (25 pts): Implicit Differentiation — Find dy/dx and tangent line slope for x^3 + y^3 = 6xy.\nProblem 2 (30 pts): Related Rates — Water is poured into an inverted conical tank at 2 m^3/min. Find how fast the water level is rising.\nProblem 3 (25 pts): Optimization — Find dimensions of a cylinder inscribed in a sphere that maximize volume.\nProblem 4 (20 pts): L'Hopital's Rule — Evaluate indeterminate limits 0/0 and inf/inf.`,
+        SE100: `SE 100 Programming for Engineers — Past Exam Paper (100 Pts)\nSection A (35 pts): Functions & Pass-by-Reference vs Value trace table.\nSection B (35 pts): 2D Arrays & Matrix Sensor Filtering algorithm.\nSection C (30 pts): File I/O Streams and Loop Debugging.`
+      };
+
+      document.getElementById('exam-paper-text').value = samplePapers[course.id] || `Past Exam Paper for ${course.code} (${course.name}) — Total: 100 Marks\nQuestion 1 (40 Marks): Core analytical problem covering high-priority unstudied lecture slides.\nQuestion 2 (35 Marks): Applied problem-solving and derivations.\nQuestion 3 (25 Marks): Conceptual definitions and synthesis.`;
+      showToast(`Loaded sample past exam paper for ${course.code}`, 'indigo');
+    }
+
+    async function handleExamPaperUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      document.getElementById('exam-paper-file-label').textContent = file.name;
+      uploadedExamImageBase64 = null;
+
+      if (file.type === 'application/pdf' && window.pdfjsLib) {
+        try {
+          showToast('Reading exam paper PDF...', 'indigo');
+          const buf = await file.arrayBuffer();
+          const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+          let text = '';
+          for (let i = 1; i <= Math.min(pdf.numPages, 6); i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map((it) => it.str).join(' ') + '\n';
+          }
+          document.getElementById('exam-paper-text').value = text.trim();
+          showToast('Exam paper PDF extracted! Click "What Should I Study First?"', 'emerald');
+        } catch (e) {
+          showToast('Could not parse PDF text; paste questions below.', 'rose');
+        }
+      } else if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          uploadedExamImageBase64 = reader.result;
+          document.getElementById('exam-paper-text').value = `[Uploaded Exam Paper Photo: ${file.name}] Ready for AI analysis.`;
+          showToast('Exam photo attached for AI analysis!', 'emerald');
+        };
+        reader.readAsDataURL(file);
+      } else {
+        const txt = await file.text();
+        document.getElementById('exam-paper-text').value = txt;
+        showToast('Exam paper text loaded!', 'emerald');
+      }
+    }
+
+    function triggerAIExamAnalysis(mode) {
+      const paperText = document.getElementById('exam-paper-text').value.trim();
+      if (!paperText && !uploadedExamImageBase64) {
+        loadSampleExamPaper();
+      }
+      const course = state.courses.find((c) => c.id === state.selectedCourseId) || state.courses[0];
+      const prompt = mode === 'prioritize'
+        ? `Analyze my uploaded ${course.code} exam paper against my current grade and unstudied slides. Tell me what topics carry the highest marks and which exact slide decks I should study first.`
+        : `Generate 3 targeted practice questions (with step-by-step solutions) that match the style and highest-weight topics of my uploaded ${course.code} exam paper.`;
+      sendUserChatMessage(prompt);
+    }
+
+    function sendQuickPrompt(text) {
+      sendUserChatMessage(text);
+    }
+
+    function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('ai-chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      sendUserChatMessage(text);
+    }
+
+    async function sendUserChatMessage(userText) {
+      state.chatHistory.push({ role: 'user', text: userText });
+      renderChatMessages();
+
+      const course = state.courses.find((c) => c.id === state.selectedCourseId) || state.courses[0];
+      const stats = calculateCourseStats(course);
+      const unstudied = state.slides.filter((s) => s.courseId === course.id && s.status !== 'Mastered');
+      const examPaperText = document.getElementById('exam-paper-text')?.value.trim() || 'No exam paper text provided yet.';
+
+      let aiReply = null;
+
+      // Try Live Gemini API if key is present
+      if (state.geminiApiKey && state.geminiApiKey.trim().length > 10) {
+        try {
+          const sysContext = `You are UniPulse AI Study Strategist for an engineering student taking 7 courses (MAT 101, PHU 103, PHU 103 Lab, SE 100, SE 100 L, COE 100, ENG 101).
+Selected Course: ${course.code} (${course.name}), Credits: ${course.credits}.
+Current Grade: ${stats.currentPct}% (${stats.letter}), Remaining Syllabus Weight: ${stats.remainingWeight}%, Target Grade: ${course.targetGrade}%.
+Unstudied Slide Decks for ${course.code}: ${unstudied.map((s) => `${s.title} (${s.priority} Priority - Notes: ${s.notes})`).join('; ') || 'None'}.
+Uploaded Exam Paper Content: ${examPaperText}.
+Give a concise, high-impact, bulleted study action plan referencing their exact slide decks, exam point weights, and grade targets.`;
+
+          const parts = [{ text: sysContext + '\n\nStudent Question: ' + userText }];
+          if (uploadedExamImageBase64) {
+            const base64Data = uploadedExamImageBase64.split(',')[1];
+            const mimeType = uploadedExamImageBase64.substring(uploadedExamImageBase64.indexOf(':') + 1, uploadedExamImageBase64.indexOf(';'));
+            parts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
+          }
+
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiApiKey.trim())}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts }] })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            aiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          }
+        } catch (err) {}
+      }
+
+      if (!aiReply) {
+        aiReply = generateSmartDiagnosticResponse(userText, course, stats, unstudied, examPaperText);
+      }
+
+      state.chatHistory.push({ role: 'assistant', text: aiReply });
+      saveState();
+      renderChatMessages();
+    }
+
+    function generateSmartDiagnosticResponse(query, course, stats, unstudied, examPaperText) {
+      const qLower = query.toLowerCase();
+      const nextExam = state.exams.find((e) => e.courseId === course.id);
+      const reqForTarget = stats.remainingWeight > 0
+        ? Math.max(0, ((course.targetGrade - stats.earnedPoints) / stats.remainingWeight) * 100).toFixed(1)
+        : 0;
+
+      if (qLower.includes('practice') || qLower.includes('mock') || qLower.includes('question')) {
+        return `### Targeted Practice Problems for ${course.code} (${course.name})\nBased on your uploaded exam paper and your unstudied slides (${unstudied.map((s) => `*${s.title}*`).join(', ') || 'Core Modules'}):\n\n1. **High-Weight Problem (30 Marks Style):**\n   * **Prompt:** Derived directly from **${unstudied[0] ? unstudied[0].title : course.name}** (${unstudied[0] ? unstudied[0].notes : 'Core concepts'}).\n   * **How to solve:** Set up the governing conservation/derivative equations first, substitute boundary conditions, and verify units before solving numerically.\n2. **Applied Multi-Step Problem (25 Marks Style):**\n   * **Prompt:** Combines ${unstudied[1] ? unstudied[1].title : 'recent problem sets'} with graphical interpretation.\n   * **Exam Trap to Avoid:** Examiners award 60% of partial credit for the setup equations—never skip intermediate steps.\n\n*Tip: Mark your slide deck as "In Progress" or "Mastered" in the Study Vault once you can solve these without looking at formula notes!*`;
+      }
+
+      if (qLower.includes('gpa') || qLower.includes('which course')) {
+        const sem = calculateSemesterTotals();
+        const lc = sem.lowestCourse;
+        return `### Semester GPA Rescue & Priority Ranking (Current GPA: ${sem.gpa})\n1. **#1 Priority Course:** **${lc.course.code} (${lc.course.name})** — currently at **${lc.stats.currentPct}% (${lc.stats.letter})** with **${lc.stats.remainingWeight}%** of syllabus weight still on the table.\n2. **High-Credit Leverage:** **MAT 101 (4 Credits)** and **PHU 103 / SE 100 (3 Credits)** have 3x–4x the GPA impact of your 1-credit labs (\`PHU 103 Lab\`, \`SE 100 L\`, \`COE 100\`).\n3. **Immediate Next Action:** Focus 70% of your study block tonight on unstudied High-Priority decks in **${lc.course.code}** and **MAT 101**.`;
+      }
+
+      // Default Exam Paper Breakdown & Study Order
+      const slideBullets = unstudied.length > 0
+        ? unstudied.map((s, i) => `${i + 1}. **${s.title}** (*${s.priority} Priority*) — Matches exam topics on: *${s.notes}*`).join('\n')
+        : `1. All logged slide decks for ${course.code} are marked Mastered! Review past exam timed drills.`;
+
+      return `### Exam Paper Priority Analysis for ${course.code}\n* **Grade Target Math:** You are at **${stats.currentPct}% (${stats.letter})**. To finish ${course.code} with your target **${course.targetGrade}%**, you need an average of **${reqForTarget}%** across the remaining **${stats.remainingWeight}%** of assessments${nextExam ? ` (Next: **${nextExam.title}** ${getDaysRemaining(nextExam.date)})` : ''}.\n* **Exam Paper Topic Breakdown:** Your uploaded paper emphasizes multi-step analytical problems. Here is the exact order to study your remaining slide decks for maximum marks per hour:\n${slideBullets}\n\n**Recommended 2-Hour Study Block Today:**\n* **00:00–00:45:** Active recall on **${unstudied[0] ? unstudied[0].title : 'Top Weight Topic'}** (summarize formulas without looking).\n* **00:45–01:30:** Solve Q1 & Q2 from your uploaded exam paper under timed conditions.\n* **01:30–02:00:** Grade your work and toggle the slide status to **Mastered** in the Slides tab.`;
+    }
+
+    function renderChatMessages() {
+      const stream = document.getElementById('ai-chat-stream');
+      if (!stream) return;
+
+      stream.innerHTML = state.chatHistory.map((m) => {
+        const isUser = m.role === 'user';
+        const formatted = formatMarkdownSimple(m.text);
+        return `
+          <div class="flex ${isUser ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[88%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${
+              isUser
+                ? 'bg-indigo-600 text-white rounded-br-sm'
+                : 'bg-slate-900/95 border border-slate-800 text-slate-200 rounded-bl-sm space-y-1.5'
+            }">
+              ${formatted}
+            </div>
+          </div>
+        `;
+      }).join('');
+      stream.scrollTop = stream.scrollHeight;
+    }
+
+    function formatMarkdownSimple(text) {
+      const escaped = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      return escaped
+        .replace(/^### (.*$)/gm, '<div class="font-bold text-indigo-300 text-sm mb-1">$1</div>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em class="text-cyan-300">$1</em>')
+        .replace(/\n/g, '<br/>');
+    }
+
+    function clearAIChat() {
+      state.chatHistory = [
+        {
+          role: 'assistant',
+          text: 'Chat reset! Upload a past exam paper or select any of your 7 courses on the left to generate a tailored study priority plan.'
+        }
+      ];
+      saveState();
+      renderChatMessages();
+    }
+
+    // ==================== MODALS, SETTINGS & BACKUP HELPERS ====================
+    function populateCourseDropdowns() {
+      const ids = ['slide-course-input', 'exam-course-input', 'lec-course-input', 'ai-course-select'];
+      ids.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = state.courses.map((c) => `<option value="${c.id}" ${c.id === state.selectedCourseId ? 'selected' : ''}>${c.code} — ${c.name}</option>`).join('');
+      });
+    }
+
+    function openModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hidden');
+      if (id === 'settings-modal') {
+        document.getElementById('gemini-api-key-input').value = state.geminiApiKey || '';
+        updateSettingsApiBadge();
+      }
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById('gemini-api-key-input').value.trim();
+      state.geminiApiKey = key;
+      saveState();
+      updateSettingsApiBadge();
+      renderAll();
+      showToast(key ? 'Gemini API Key saved for live AI calls!' : 'Reverted to Smart Local AI Engine', 'emerald');
+    }
+
+    function updateSettingsApiBadge() {
+      const badge = document.getElementById('settings-api-badge');
+      if (!badge) return;
+      if (state.geminiApiKey && state.geminiApiKey.trim().length > 10) {
+        badge.textContent = 'Live Gemini API Key Saved';
+        badge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300';
+      } else {
+        badge.textContent = 'Smart Local Fallback Active';
+        badge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300';
+      }
+    }
+
+    function exportFullBackupJSON() {
+      const dataStr = JSON.stringify(state, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `UniPulse_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast('Exported full JSON backup!', 'emerald');
+    }
+
+    function importFullBackupJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          if (parsed && Array.isArray(parsed.courses)) {
+            state = parsed;
+            saveState();
+            renderAll();
+            closeModal('settings-modal');
+            showToast('Backup restored!', 'emerald');
+          } else {
+            showToast('Invalid backup JSON file.', 'rose');
+          }
+        } catch (e) {
+          showToast('Failed to parse JSON backup.', 'rose');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetToDefaultDemoData() {
+      state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+      saveState();
+      closeModal('settings-modal');
+      renderAll();
+      showToast('Reset to default 7-course data.', 'amber');
+    }
+
+    function showToast(message, color = 'indigo') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const colors = {
+        indigo: 'border-indigo-500/50 bg-slate-900/95 text-indigo-200',
+        emerald: 'border-emerald-500/50 bg-slate-900/95 text-emerald-200',
+        amber: 'border-amber-500/50 bg-slate-900/95 text-amber-200',
+        rose: 'border-rose-500/50 bg-slate-900/95 text-rose-200',
+        cyan: 'border-cyan-500/50 bg-slate-900/95 text-cyan-200'
+      };
+      const div = document.createElement('div');
+      div.className = `p-3 rounded-xl border shadow-xl text-xs font-medium flex items-center gap-2 transition-all duration-300 pointer-events-auto ${colors[color] || colors.indigo}`;
+      div.innerHTML = `<i data-lucide="Sparkles" class="w-4 h-4 shrink-0"></i><span>${message}</span>`;
+      container.appendChild(div);
+      if (window.lucide) window.lucide.createIcons();
+      setTimeout(() => {
+        div.style.opacity = '0';
+        setTimeout(() => div.remove(), 300);
+      }, 3600);
+    }
+
+    // Boot application
+    window.addEventListener('DOMContentLoaded', () => {
+      switchMainTab(state.activeTab || 'dashboard');
+    });
+  </script>
+</body>
+</html>
